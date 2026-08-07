@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>炉石网页版 · 简易对战</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+html,body { width:100%; height:100%; overflow:hidden; background:#120c08; font-family:"Microsoft YaHei","PingFang SC",sans-serif; }
+
+/* ============ 1. 全局舞台 — 纯正炉石卡通酒馆光影 (摒弃现实照片) ============ */
+#stage {
+  position:absolute; width:1600px; height:900px; left:50%; top:50%;
+  transform-origin:center center;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255, 175, 60, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse at center, #321e10 0%, #1a0f07 60%, #0a0402 100%);
+}
+
+#board {
+  position:absolute; left:170px; top:120px; width:1180px; height:560px;
+  border-radius:60px;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(255, 230, 160, 0.18) 0%, transparent 75%),
+    linear-gradient(180deg, #7a5430 0%, #8c6038 48%, #664324 52%, #523519 100%);
+  box-shadow:
+    inset 0 0 80px rgba(0,0,0,0.85),
+    0 20px 50px rgba(0,0,0,0.9),
+    0 0 0 8px #2b1708,
+    0 0 0 14px #6a4a20;
+  border:10px solid #482f14;
+}
+
+#board::before {
+  content:""; position:absolute; inset:0; border-radius:50px; opacity:0.25; pointer-events:none;
+  background:repeating-linear-gradient(93deg, transparent 0 26px, rgba(40,24,8,0.6) 26px 28px),
+             repeating-linear-gradient(1deg, transparent 0 90px, rgba(255,220,160,0.08) 90px 96px);
+}
+/* 战场氛围光斑（柔和呼吸） */
+#board::after {
+  content:''; position:absolute; inset:0; border-radius:50px; pointer-events:none;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255,220,140,0.05) 0%, transparent 40%),
+    radial-gradient(circle at 70% 70%, rgba(255,180,100,0.04) 0%, transparent 35%),
+    radial-gradient(circle at 85% 20%, rgba(255,200,150,0.03) 0%, transparent 30%);
+  animation:boardAmbient 8s ease-in-out infinite alternate;
+}
+@keyframes boardAmbient {
+  0% { opacity:0.55; }
+  100% { opacity:1; }
+}
+
+/* 中线分界 */
+#midLine {
+  position:absolute; left:200px; right:220px; top:398px; height:4px;
+  background:linear-gradient(90deg, transparent, #8a6030 15%, #3e240c 50%, #8a6030 85%, transparent);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  border-radius:2px;
+}
+#midGem {
+  position:absolute; left:50%; top:400px; transform:translate(-50%,-50%);
+  width:50px; height:50px; border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #fff0b3, #d49b28 45%, #5e3a0b 100%);
+  border:4px solid #3a220a; box-shadow:0 0 20px rgba(255,200,90,0.6), inset 0 0 8px rgba(255,255,255,0.8);
+}
+
+/* ============ 随从行 ============ */
+.row {
+  position:absolute; left:260px; width:1080px; height:160px;
+  display:flex; justify-content:center; align-items:center; gap:10px;
+}
+#enemyRow { top:218px; }
+#myRow { top:432px; }
+
+/* ============ 随从 ============ */
+.minion { position:relative; width:112px; height:148px; cursor:pointer; flex:0 0 auto; transition:transform .15s; }
+.minion .mBody {
+  position:absolute; left:8px; right:8px; top:4px; bottom:14px;
+  border-radius:50% / 46%;
+  background:radial-gradient(circle at 50% 32%, #d9c8a8 0%, #a8906a 55%, #6b542f 100%);
+  border:5px solid #3b2a12;
+  box-shadow: inset 0 -14px 22px rgba(0,0,0,0.35), 0 4px 10px rgba(0,0,0,0.5);
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+}
+.minion.taunt .mBody {
+  border:6px solid #7d8894;
+  box-shadow: inset 0 -14px 22px rgba(0,0,0,0.35), 0 0 0 3px #39424c, 0 4px 10px rgba(0,0,0,0.6);
+  border-radius:42% / 38%;
+  transition: box-shadow .35s, border-color .35s, border-width .35s;
+}
+.minion .mArt { font-size:52px; line-height:1; filter:drop-shadow(0 3px 3px rgba(0,0,0,0.45)); }
+.minion .mAtk, .minion .mHp {
+  position:absolute; bottom:2px; width:40px; height:40px; border-radius:50%;
+  color:#fff; font-size:22px; font-weight:bold; text-align:center; line-height:38px;
+  text-shadow:0 2px 2px #000; border:3px solid #2a1c08; z-index:3;
+}
+.minion .mAtk { left:2px; background:radial-gradient(circle at 35% 30%, #ffe27a, #d99b18 60%, #8a5c05); }
+.minion .mHp  { right:2px; background:radial-gradient(circle at 35% 30%, #ff9078, #d92f18 60%, #7e1204); }
+.minion .mHp.hurt { color:#ffd3d3; background:radial-gradient(circle at 35% 30%, #e05540, #a81b08 60%, #5e0d02); }
+.minion .sdBadge {
+  position:absolute; top:2px; right:2px; font-size:11px; font-weight:bold;
+  color:#cfe6ff; background:radial-gradient(circle at 35% 30%, #3a5aa8, #162a55 70%);
+  border:2px solid #0a1c38; border-radius:4px; padding:1px 4px; z-index:3;
+  text-shadow:0 1px 2px #000; box-shadow:0 0 6px rgba(120,180,255,0.5);
+}
+.minion.canAtk .mBody { box-shadow: inset 0 -14px 22px rgba(0,0,0,0.35), 0 0 16px 5px rgba(120,255,90,0.75); }
+.minion.selAtk .mBody { box-shadow: inset 0 -14px 22px rgba(0,0,0,0.35), 0 0 18px 6px rgba(255,70,40,0.9); }
+.minion.shield .mBody { box-shadow: inset 0 -14px 22px rgba(0,0,0,0.35), 0 0 14px 5px rgba(255,220,90,0.85), inset 0 0 24px rgba(255,230,140,0.5); }
+.minion.silenced .mBody { filter: grayscale(0.8); border-color: #555 !important; transition: filter .4s ease; }
+.minion:not(.silenced) .mBody { transition: filter .4s ease; }
+.minion.sleepz::after {
+  content:"💤"; position:absolute; top:-4px; right:6px; font-size:22px; z-index:4;
+  animation:zfloat 1.6s ease-in-out infinite;
+}
+@keyframes zfloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+.minion.spawn { animation:spawnPop .3s ease-out; }
+@keyframes spawnPop { 0%{transform:scale(0.2); opacity:0} 70%{transform:scale(1.12)} 100%{transform:scale(1); opacity:1} }
+.minion.dying { animation:die .55s ease-in forwards; pointer-events:none; }
+@keyframes die {
+  0% { transform:scale(1); opacity:1; filter:grayscale(0) brightness(1); }
+  30% { transform:scale(1.08); opacity:1; filter:brightness(1.6) saturate(0.4); }
+  100% { transform:scale(0.4) rotate(12deg) translateY(-26px); opacity:0; filter:grayscale(1) brightness(0.3); }
+}
+.minion.shake { animation:hitShake .3s; }
+@keyframes hitShake { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-7px,3px) rotate(-3deg)} 60%{transform:translate(6px,-3px) rotate(2deg)} }
+
+/* ============ 攻击动画增强 ============ */
+/* 撞击白色闪光 */
+@keyframes impactFlash {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(2.6) saturate(0.3); }
+  100% { filter: brightness(1); }
+}
+/* 受击目标击退（沿攻击方向） */
+@keyframes knockback {
+  0% { transform: translate(0,0) scale(1); }
+  40% { transform: translate(var(--kbx), var(--kby)) scale(0.86); }
+  100% { transform: translate(0,0) scale(1); }
+}
+/* 攻击冲刺拖尾粒子 */
+.atk-trail {
+  position:absolute; width:6px; height:6px; border-radius:50%;
+  z-index:93; pointer-events:none;
+  background:radial-gradient(circle, #fff, #ffb040 60%, transparent);
+  box-shadow:0 0 8px #ff9030;
+  animation:trailFade .4s ease-out forwards;
+}
+@keyframes trailFade {
+  0% { opacity:1; transform:scale(1); }
+  100% { opacity:0; transform:scale(0.2) translateY(-18px); }
+}
+
+/* ============ 英雄 ============ */
+.hero { position:absolute; width:150px; height:150px; left:725px; cursor:pointer; }
+#enemyHero { top:28px; }
+#myHero { top:620px; }
+.hero .hPortrait {
+  position:absolute; left:15px; top:5px; width:120px; height:140px;
+  border-radius:46% 46% 50% 50% / 60% 60% 42% 42%;
+  background:radial-gradient(circle at 50% 30%, #e8d5b0 0%, #a98c5e 60%, #5f4522 100%);
+  border:6px solid #3a2a10;
+  box-shadow:0 6px 18px rgba(0,0,0,0.6), inset 0 -16px 26px rgba(0,0,0,0.35);
+  display:flex; align-items:center; justify-content:center; font-size:64px;
+}
+.hero.canAtk .hPortrait { box-shadow:0 0 18px 6px rgba(120,255,90,0.8), inset 0 -16px 26px rgba(0,0,0,0.35); }
+.hero.selAtk .hPortrait { box-shadow:0 0 20px 7px rgba(255,70,40,0.9), inset 0 -16px 26px rgba(0,0,0,0.35); }
+.hero .hHp {
+  position:absolute; right:2px; bottom:2px; width:48px; height:54px; z-index:3;
+  background:radial-gradient(circle at 38% 28%, #ff8f78, #d92f18 55%, #6e0f02 100%);
+  border:3px solid #33150a; border-radius:46% 46% 50% 50% / 40% 40% 60% 60%;
+  color:#fff; font-weight:bold; font-size:24px; text-align:center; line-height:50px; text-shadow:0 2px 3px #000;
+}
+.hero .hArmor {
+  position:absolute; right:2px; top:0px; width:42px; height:46px; z-index:3; display:none;
+  background:radial-gradient(circle at 38% 28%, #e8eef4, #93a5b8 55%, #46586c 100%);
+  border:3px solid #22303e; border-radius:50% 50% 46% 46% / 42% 42% 58% 58%;
+  color:#fff; font-weight:bold; font-size:22px; text-align:center; line-height:42px; text-shadow:0 2px 2px #000;
+}
+.hero .hArmor.pulse { animation:armorPulse .4s ease-out; }
+@keyframes armorPulse {
+  0% { transform:scale(0.5); opacity:0; }
+  60% { transform:scale(1.4); opacity:1; }
+  100% { transform:scale(1); opacity:1; }
+}
+.hero .hName {
+  position:absolute; top:-24px; left:50%; transform:translateX(-50%);
+  color:#e8d8ae; font-size:15px; text-shadow:0 2px 3px #000; white-space:nowrap;
+}
+#myHero .hName { top:auto; bottom:-22px; }
+.hero.shake { animation:hitShake .3s; }
+
+/* 英雄武器攻击力（左下角金色水滴） */
+.hero .hWeaponAtk {
+  position:absolute; left:0px; bottom:4px; width:44px; height:50px; z-index:3; display:none;
+  background:radial-gradient(circle at 35% 30%, #ffe27a, #d99b18 60%, #8a5c05);
+  border:3px solid #2a1c08; border-radius:46% 46% 50% 50% / 40% 40% 60% 60%;
+  color:#fff; font-weight:bold; font-size:24px; text-align:center; line-height:46px; text-shadow:0 2px 2px #000;
+}
+/* 英雄武器耐久度（左上角蓝色方形） */
+.hero .hWeaponDur {
+  position:absolute; left:-6px; top:8px; width:38px; height:46px; z-index:3; display:none;
+  background:radial-gradient(circle at 35% 30%, #6fc0ff, #2277cc 60%, #0b3060);
+  border:3px solid #0a1c30; border-radius:15%;
+  color:#fff; font-weight:bold; font-size:22px; text-align:center; line-height:42px; text-shadow:0 2px 2px #000;
+}
+.hero .hWeaponDur.dur-hit { animation:durShake .35s ease-out; }
+@keyframes durShake {
+  0%,100% { transform:scale(1); }
+  30% { transform:scale(0.7); color:#ff4040; }
+}
+
+/* ============ 英雄技能 ============ */
+.hpower {
+  position:absolute; width:86px; height:86px; left:880px; border-radius:50%; cursor:pointer;
+  background:radial-gradient(circle at 42% 32%, #ffd98a, #c98b2c 55%, #7a5210 100%);
+  border:5px solid #3a2a10; box-shadow:0 4px 12px rgba(0,0,0,0.55);
+  display:flex; align-items:center; justify-content:center; font-size:36px;
+}
+#enemyPower { top:58px; }
+#myPower { top:650px; }
+.hpower .hpCost {
+  position:absolute; top:-8px; left:-6px; width:32px; height:32px; border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #9fd0ff, #2277dd 60%, #0b3a80);
+  border:2px solid #0a2540; color:#fff; font-size:18px; font-weight:bold; text-align:center; line-height:29px; text-shadow:0 1px 2px #000;
+}
+.hpower.used { filter:grayscale(0.9) brightness(0.55); cursor:default; }
+.hpower.usable { box-shadow:0 0 16px 5px rgba(120,255,90,0.7), 0 4px 12px rgba(0,0,0,0.55); }
+.hpower.selAtk { box-shadow:0 0 18px 6px rgba(255,70,40,0.9); }
+
+/* ============ 手牌 ============ */
+#myHand { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:40; }
+#enemyHand { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:20; }
+
+.card {
+  position:absolute; width:132px; height:186px; border-radius:10px;
+  background:linear-gradient(170deg, #c8b088 0%, #a08050 100%);
+  border:4px solid #2e2008;
+  box-shadow:0 6px 16px rgba(0,0,0,0.6);
+  transition:transform .18s ease-out, box-shadow .18s;
+  pointer-events:auto; cursor:pointer;
+}
+.card.spell { background:linear-gradient(170deg, #8fa0c8 0%, #5a6a9c 100%); }
+.card.weapon { background:linear-gradient(170deg, #c89068 0%, #8b4513 100%); }
+.card.secret { background:linear-gradient(170deg, #a58fc8 0%, #5a4a9c 100%); box-shadow:0 0 14px 4px rgba(170,130,255,0.75); }
+.card .cCost {
+  position:absolute; top:-10px; left:-10px; width:42px; height:42px; border-radius:50%; z-index:3;
+  background:radial-gradient(circle at 35% 30%, #9fd0ff, #2277dd 60%, #0b3a80);
+  border:3px solid #0a2540; color:#fff; font-size:24px; font-weight:bold; text-align:center; line-height:38px; text-shadow:0 2px 2px #000;
+}
+.card .cArt {
+  position:absolute; top:10px; left:50%; transform:translateX(-50%);
+  width:104px; height:74px; border-radius:50% / 42%;
+  background:radial-gradient(circle at 50% 35%, #f0e2c0, #8f7648 80%);
+  border:3px solid #3a2a10; display:flex; align-items:center; justify-content:center;
+  font-size:44px; overflow:hidden;
+}
+.card.spell .cArt { background:radial-gradient(circle at 50% 35%, #d8e2f8, #4a5a88 85%); }
+.card.weapon .cArt { background:radial-gradient(circle at 50% 35%, #e8c8a0, #7a4a28 85%); }
+.card .cName {
+  position:absolute; top:88px; left:4px; right:4px; height:24px;
+  background:linear-gradient(90deg, transparent, rgba(46,30,8,0.85) 12%, rgba(46,30,8,0.85) 88%, transparent);
+  color:#ffe8b8; font-size:14px; font-weight:bold; text-align:center; line-height:24px;
+  border-radius:8px; white-space:nowrap;
+}
+.card .cText {
+  position:absolute; top:116px; left:8px; right:8px; bottom:8px; border-radius:8px;
+  background:rgba(244,232,206,0.9); color:#3a2a14;
+  font-size:12px; text-align:center; padding:5px 4px; line-height:1.25;
+  display:flex; align-items:center; justify-content:center;
+}
+.card.spell .cText { background:rgba(224,230,246,0.92); color:#20284a; }
+.card.weapon .cText { background:rgba(244,220,200,0.92); color:#3a1a08; }
+.card .cAtk, .card .cHp {
+  position:absolute; bottom:-8px; width:40px; height:40px; border-radius:50%; z-index:3;
+  color:#fff; font-size:22px; font-weight:bold; text-align:center; line-height:36px; text-shadow:0 2px 2px #000;
+  border:3px solid #2a1c08;
+}
+.card .cAtk { left:-8px; background:radial-gradient(circle at 35% 30%, #ffe27a, #d99b18 60%, #8a5c05); }
+.card .cHp { right:-8px; background:radial-gradient(circle at 35% 30%, #ff9078, #d92f18 60%, #7e1204); }
+.card .cDur {
+  position:absolute; right:-8px; bottom:-8px; width:40px; height:40px; border-radius:15%; z-index:3;
+  background:radial-gradient(circle at 35% 30%, #6fc0ff, #2277cc 60%, #0b3060);
+  border:3px solid #0a1c30; color:#fff; font-size:22px; font-weight:bold; text-align:center; line-height:36px; text-shadow:0 2px 2px #000;
+}
+.card.playable { box-shadow:0 0 14px 4px rgba(110,250,110,0.65), 0 6px 16px rgba(0,0,0,0.6); }
+.card.selCard { box-shadow:0 0 18px 6px rgba(90,220,255,0.9), 0 6px 16px rgba(0,0,0,0.6); }
+
+.cardBack {
+  position:absolute; width:110px; height:154px; border-radius:10px;
+  background: radial-gradient(circle at 50% 42%, #6a4a9c 0%, #3a2560 55%, #241640 100%);
+  border:4px solid #1a1030; box-shadow:0 4px 12px rgba(0,0,0,0.55);
+}
+.cardBack::after {
+  content:"❖"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  color:#c8a84a; font-size:44px; text-shadow:0 0 10px rgba(255,210,110,0.6);
+}
+
+/* ============ 奥秘卡 ============ */
+/* 已挂载的奥秘：以"?"形态悬浮在英雄旁，对手无法得知内容 */
+.secretRow { position:absolute; display:flex; gap:6px; z-index:30; pointer-events:none; }
+/* 放在英雄左侧的空旷区域，最多5张(320px)也不与英雄头像重叠 */
+#mySecrets { left:380px; top:690px; }
+#enemySecrets { left:380px; top:120px; }
+.secretCard {
+  position:relative; width:58px; height:82px; border-radius:6px; cursor:pointer;
+  background: radial-gradient(circle at 50% 42%, #7a5aac 0%, #452a70 55%, #2a1850 100%);
+  border:3px solid #1f1440; box-shadow:0 3px 8px rgba(0,0,0,0.55);
+  display:flex; align-items:center; justify-content:center;
+  color:#d0b0ff; font-size:24px; pointer-events:auto;
+  transition:transform .15s, box-shadow .15s;
+  animation:secFloat 2.4s ease-in-out infinite;
+}
+@keyframes secFloat { 0%,100%{margin-top:0} 50%{margin-top:-5px} }
+.secretCard:hover { animation:none; transform:translateY(-10px) scale(1.06); box-shadow:0 8px 18px rgba(0,0,0,0.7), 0 0 14px rgba(180,140,255,0.7); z-index:5; }
+.secretCard .scTip {
+  position:absolute; bottom:-28px; left:50%; transform:translateX(-50%);
+  font-size:11px; color:#e0d0ff; white-space:nowrap; text-shadow:0 1px 2px #000;
+  opacity:0; transition:opacity .15s; pointer-events:none;
+}
+.secretCard:hover .scTip { opacity:1; }
+
+/* 对手打出奥秘：神秘"?"卡飞入动画（不暴露具体牌面，参考炉石传说） */
+.secret-play-fx {
+  position:absolute; width:58px; height:82px; z-index:95; pointer-events:none;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:6px; font-size:26px; color:#d0b0ff;
+  background: radial-gradient(circle at 50% 42%, #7a5aac 0%, #452a70 55%, #2a1850 100%);
+  border:3px solid #1f1440; box-shadow:0 4px 14px rgba(0,0,0,0.6);
+  transition:left .55s cubic-bezier(0.34,1.4,0.64,1), top .55s cubic-bezier(0.34,1.4,0.64,1), transform .3s ease;
+  animation:mysteryGlow .5s ease-in-out infinite;
+}
+@keyframes mysteryGlow {
+  0%,100% { box-shadow:0 0 8px rgba(170,130,255,0.4); }
+  50% { box-shadow:0 0 20px rgba(170,130,255,0.95); }
+}
+
+/* ============ 牌库 ============ */
+.deckPile { position:absolute; width:96px; height:134px; right:36px; }
+#enemyDeck { top:110px; }
+#myDeck { top:610px; }
+.deckPile .dk {
+  position:absolute; inset:0; border-radius:9px;
+  background:radial-gradient(circle at 50% 42%, #6a4a9c 0%, #3a2560 55%, #241640 100%);
+  border:3px solid #1a1030; box-shadow:0 3px 8px rgba(0,0,0,0.5);
+}
+.deckPile .dk:nth-child(1){ transform:translate(6px,6px); }
+.deckPile .dk:nth-child(2){ transform:translate(3px,3px); }
+.deckPile .dkN {
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:3;
+  color:#ffe8b0; font-size:30px; font-weight:bold; text-shadow:0 2px 4px #000, 0 0 8px #000;
+}
+.deckPile .dkLabel { position:absolute; bottom:-22px; width:100%; text-align:center; color:#b09a6e; font-size:13px; text-shadow:0 1px 2px #000; }
+/* 抽牌时牌库弹跳 */
+.deckPile.pulse { animation:deckPulse .3s ease-out; }
+@keyframes deckPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+/* 牌库空牌疲劳警告 */
+.deckPile.fatigue-warn .dkN { color:#ff4040; animation:fatiguePulse .8s ease-in-out infinite; }
+@keyframes fatiguePulse {
+  0%,100% { text-shadow:0 2px 4px #000; }
+  50% { text-shadow:0 0 18px #ff2020, 0 2px 4px #000; }
+}
+
+/* ============ 法力 ============ */
+#myManaBar { position:absolute; right:150px; top:836px; display:flex; align-items:center; gap:5px; }
+#myManaTxt { color:#bfe0ff; font-size:24px; font-weight:bold; margin-right:8px; text-shadow:0 2px 3px #000; }
+.gem { width:26px; height:26px; position:relative; }
+.gem::before {
+  content:""; position:absolute; inset:2px; transform:rotate(45deg); border-radius:5px;
+  background:radial-gradient(circle at 35% 30%, #a8d8ff, #2277dd 60%, #0b3a80);
+  border:2px solid #0a2540; box-shadow:0 0 8px rgba(80,170,255,0.7);
+}
+.gem.off::before { background:radial-gradient(circle at 35% 30%, #4a5866, #2c3540 60%, #171d24); box-shadow:none; }
+#enemyManaTxt { position:absolute; right:170px; top:30px; color:#bfe0ff; font-size:20px; font-weight:bold; text-shadow:0 2px 3px #000; }
+
+/* ============ 回合按钮 / 退出按钮 ============ */
+#endTurn {
+  position:absolute; right:16px; top:368px; width:138px; height:56px;
+  border-radius:28px; border:4px solid #4a370f; cursor:pointer; z-index:30;
+  background:linear-gradient(180deg, #ffe28a 0%, #e0a83a 55%, #b07d18 100%);
+  color:#5a3a08; font-size:21px; font-weight:bold; font-family:inherit;
+  box-shadow:0 4px 12px rgba(0,0,0,0.55), inset 0 2px 4px rgba(255,255,230,0.6);
+  text-shadow:0 1px 1px rgba(255,240,200,0.7);
+}
+#endTurn:hover:not(:disabled) { filter:brightness(1.1); }
+#endTurn:disabled {
+  background:linear-gradient(180deg, #8a8a8a, #5c5c5c); color:#333; cursor:default;
+  border-color:#3a3a3a; text-shadow:none;
+}
+#endTurn.pulse { animation:btnPulse 1.2s ease-in-out infinite; }
+@keyframes btnPulse { 0%,100%{ box-shadow:0 4px 12px rgba(0,0,0,0.55), 0 0 6px 2px rgba(255,220,90,0.5);} 50%{ box-shadow:0 4px 12px rgba(0,0,0,0.55), 0 0 20px 7px rgba(255,220,90,0.9);} }
+
+#quitBtn {
+  position:absolute; right:16px; top:434px; width:48px; height:48px;
+  border-radius:50%; border:3px solid #4a370f; cursor:pointer; z-index:30;
+  background:linear-gradient(180deg, #6a4a2a, #4a3018 55%, #2d1808);
+  color:#d8c098; font-size:22px; box-shadow:0 3px 10px rgba(0,0,0,0.5);
+  display:flex; align-items:center; justify-content:center;
+  transition:filter .15s, transform .15s;
+}
+#quitBtn:hover { filter:brightness(1.2); transform:scale(1.1); }
+
+/* ============ 横幅 ============ */
+#banner {
+  position:absolute; left:0; right:0; top:380px; height:120px; z-index:80; display:none;
+  align-items:center; justify-content:center; pointer-events:none;
+}
+#banner .bnBg {
+  position:absolute; left:0; right:0; top:24px; bottom:24px;
+  background:linear-gradient(90deg, transparent, rgba(20,12,4,0.88) 20%, rgba(20,12,4,0.88) 80%, transparent);
+  border-top:2px solid rgba(255,210,110,0.5); border-bottom:2px solid rgba(255,210,110,0.5);
+}
+#banner .bnTxt {
+  position:relative; font-size:52px; font-weight:bold; color:#ffd970;
+  text-shadow:0 0 18px rgba(255,180,60,0.8), 0 4px 6px #000; letter-spacing:12px;
+}
+#banner.show { display:flex; animation:bannerIn 1.5s ease forwards; }
+@keyframes bannerIn {
+  0%{ opacity:0; transform:scale(1.6);} 18%{ opacity:1; transform:scale(1);}
+  80%{ opacity:1; transform:scale(1);} 100%{ opacity:0; transform:scale(0.92);}
+}
+
+/* ============ FX 层 ============ */
+#fxLayer { position:absolute; inset:0; pointer-events:none; z-index:90; }
+.dmgNum {
+  position:absolute; z-index:95; transform:translate(-50%,-50%);
+  width:74px; height:74px; display:flex; align-items:center; justify-content:center;
+  font-size:38px; font-weight:bold; color:#fff; text-shadow:0 2px 3px #000;
+  background:radial-gradient(circle, #e03018 0%, #a01808 60%, transparent 72%);
+  clip-path:polygon(50% 0%, 61% 22%, 82% 8%, 78% 32%, 100% 34%, 84% 52%, 98% 70%, 74% 68%, 72% 94%, 55% 74%, 38% 98%, 34% 72%, 8% 80%, 22% 56%, 0% 44%, 24% 36%, 12% 12%, 36% 24%);
+  animation:dmgPop 0.9s ease-out forwards;
+}
+.dmgNum.heal { background:radial-gradient(circle, #2fae32 0%, #0f7a18 60%, transparent 72%); clip-path:none; border-radius:50%; }
+@keyframes dmgPop {
+  0%{ transform:translate(-50%,-50%) scale(0.3); opacity:0;}
+  15%{ transform:translate(-50%,-50%) scale(1.25); opacity:1;}
+  30%{ transform:translate(-50%,-50%) scale(1);}
+  75%{ opacity:1;}
+  100%{ transform:translate(-50%,-72%) scale(0.9); opacity:0;}
+}
+.fireball {
+  position:absolute; width:46px; height:46px; border-radius:50%; z-index:94; transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 40% 35%, #fff2b0, #ff9018 45%, #d03808 75%, transparent);
+  box-shadow:0 0 26px 10px rgba(255,120,20,0.75);
+}
+.fireball.frost { background:radial-gradient(circle at 40% 35%, #e8faff, #58c8f8 45%, #1868c8 75%, transparent); box-shadow:0 0 26px 10px rgba(90,190,255,0.75); }
+.fireball.holy { background:radial-gradient(circle at 40% 35%, #fffce0, #ffe268 45%, #d8a818 75%, transparent); box-shadow:0 0 26px 10px rgba(255,225,110,0.8); }
+.fireball.shadow { background:radial-gradient(circle at 40% 35%, #e8d8ff, #9858e8 45%, #4818a8 75%, transparent); box-shadow:0 0 26px 10px rgba(150,90,255,0.75); }
+.boom {
+  position:absolute; width:120px; height:120px; border-radius:50%; z-index:93; transform:translate(-50%,-50%);
+  background:radial-gradient(circle, rgba(255,240,180,0.95) 0%, rgba(255,130,30,0.8) 40%, rgba(200,50,10,0.4) 65%, transparent 75%);
+  animation:boomAn .45s ease-out forwards;
+}
+@keyframes boomAn { 0%{ transform:translate(-50%,-50%) scale(0.25); opacity:1;} 100%{ transform:translate(-50%,-50%) scale(1.4); opacity:0;} }
+.spark { position:absolute; width:10px; height:10px; border-radius:50%; z-index:93; transform:translate(-50%,-50%); }
+/* AOE 法术全屏覆盖闪光 */
+@keyframes flashOverlay {
+  0% { opacity: 0; transform: scale(0.92); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+/* 奥秘揭示暗角 */
+@keyframes vignetteIn {
+  0% { opacity: 0; }
+  25% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ============ P1 增强层 ============ */
+/* 法力水晶逐颗填充 */
+.gem.filling { animation: gemFill .35s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes gemFill {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.4); }
+  100% { transform: scale(1); opacity: 1; }
+}
+/* 回合过渡覆盖层 */
+.turn-overlay {
+  position:absolute; inset:0; z-index:88; pointer-events:none;
+  background:radial-gradient(ellipse at 50% 40%, rgba(255,200,100,0.32), transparent 70%);
+  animation:turnSweep 1.0s ease-out forwards;
+}
+@keyframes turnSweep {
+  0% { opacity:0; transform:scale(0.94); }
+  20% { opacity:1; }
+  100% { opacity:0; transform:scale(1.03); }
+}
+/* 拖拽轨迹粒子 */
+.drag-spark {
+  position:absolute; width:4px; height:4px; border-radius:50%;
+  background:rgba(255,220,100,0.9); box-shadow:0 0 6px #ffd970;
+  pointer-events:none; z-index:91; animation:dragSparkFade .4s ease-out forwards;
+}
+@keyframes dragSparkFade {
+  0% { transform:scale(1); opacity:0.9; }
+  100% { transform:scale(0) translateY(-15px); opacity:0; }
+}
+/* 英雄受击红光反馈 */
+.hero.hurt-flash .hPortrait { animation:heroHurtFlash .45s ease-out; }
+@keyframes heroHurtFlash {
+  0% { box-shadow:0 0 40px 15px rgba(255,40,20,0.9), inset 0 -16px 26px rgba(0,0,0,0.35); }
+  100% { box-shadow:0 6px 18px rgba(0,0,0,0.6), inset 0 -16px 26px rgba(0,0,0,0.35); }
+}
+/* 武器装备飞入 */
+.hero .hWeaponAtk.weapon-equip { animation:weaponEquip .45s cubic-bezier(.34,1.56,.64,1) forwards; }
+@keyframes weaponEquip {
+  0% { transform:translate(-30px,24px) rotate(-50deg) scale(0.3); opacity:0; }
+  60% { transform:translate(4px,-3px) rotate(6deg) scale(1.15); opacity:1; }
+  100% { transform:translate(0,0) rotate(0deg) scale(1); opacity:1; }
+}
+/* 武器卡实体从手牌旋转飞入英雄武器槽 */
+.weapon-fly-fx {
+  position:absolute; z-index:94; pointer-events:none;
+  transition:left .45s cubic-bezier(.34,1.4,.64,1),
+             top .45s cubic-bezier(.25,1,.5,1),
+             transform .45s ease-out,
+             opacity .18s;
+}
+
+/* 出牌展示位 */
+.showcase {
+  position:absolute; left:50%; top:44%; transform:translate(-50%,-50%) scale(1.55); z-index:96;
+  transition:transform .3s ease, left .3s ease, top .3s ease, opacity .3s;
+}
+
+/* ============ 随从从手牌飞入战场的弧线动画 ============ */
+.card-fly-in {
+  position:absolute; z-index:92; pointer-events:none;
+  animation:cardFlyArc .4s cubic-bezier(.3,.6,.4,1) forwards;
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,0.55));
+}
+@keyframes cardFlyArc {
+  0%   { transform:translate(0,0) scale(0.72) rotate(-6deg); opacity:1; }
+  35%  { transform:translate(var(--mx),var(--my)) scale(1.1) rotate(2deg); opacity:1; }
+  100% { transform:translate(var(--dx),var(--dy)) scale(0.95) rotate(0deg); opacity:1; }
+}
+
+/* ============ 目标箭头 ============ */
+#arrowSvg { position:absolute; inset:0; pointer-events:none; z-index:85; }
+#arrowSvg path { filter:drop-shadow(0 0 6px rgba(255,60,30,0.8)); }
+
+/* ============ 全局卡牌右键放大预览框 ============ */
+#preview {
+  position: absolute; z-index: 350; pointer-events: none; display: none;
+  filter: drop-shadow(0 15px 30px rgba(0,0,0,0.85)) drop-shadow(0 0 15px rgba(255,215,100,0.6));
+  transition: transform .1s ease-out;
+}
+/* 预览卡内部禁止指针事件：cardHTML 生成的 .card 带 pointer-events:auto，
+   若覆盖在悬停目标上方会抢走 hit-test，造成 mouseenter/leave 振荡抖动 */
+#preview * { pointer-events: none !important; }
+
+/* ============ 结算 ============ */
+#gameOver {
+  position:absolute; inset:0; z-index:200; display:none; align-items:center; justify-content:center;
+  background:rgba(8,4,2,0.72);
+}
+#gameOver .goBox { text-align:center; }
+#goTitle { font-size:88px; font-weight:bold; letter-spacing:16px; text-shadow:0 0 30px rgba(255,190,60,0.9), 0 6px 10px #000; color:#ffd970; animation:goPop .7s ease-out; }
+#goTitle.lose { color:#a8b4c8; text-shadow:0 0 24px rgba(120,150,220,0.7), 0 6px 10px #000; }
+@keyframes goPop { 0%{ transform:scale(2.4); opacity:0;} 60%{ transform:scale(0.94);} 100%{ transform:scale(1); opacity:1;} }
+#goBtn {
+  margin-top:25px; padding:14px 48px; font-size:24px; font-weight:bold; font-family:inherit; cursor:pointer;
+  border-radius:30px; border:4px solid #4a370f; color:#5a3a08;
+  background:linear-gradient(180deg, #ffe28a 0%, #e0a83a 55%, #b07d18 100%);
+  box-shadow:0 4px 14px rgba(0,0,0,0.6);
+}
+#goBtn:hover { filter:brightness(1.1); }
+
+/* ============ 3. 开始界面 — 酒馆壁炉暖烘烘烘托 ============ */
+#intro {
+  position:absolute; inset:0; z-index:210; display:flex; align-items:center; justify-content:center; flex-direction:column;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 185, 70, 0.38) 0%, transparent 55%),
+    radial-gradient(ellipse at center, #3a2211 0%, #1c0f06 65%, #080301 100%);
+}
+
+#intro h1 {
+  color:#ffd970; font-size:68px; letter-spacing:12px;
+  text-shadow:
+    0 0 22px rgba(255,180,60,0.85),
+    0 4px 0 #8a5a18,
+    0 8px 18px #000;
+  margin-bottom:6px;
+}
+#intro .sub {
+  color:#e0c088; font-size:19px; margin-bottom:24px; letter-spacing:4px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.profile-box {
+  background: linear-gradient(180deg, rgba(55, 32, 16, 0.92), rgba(25, 14, 5, 0.95));
+  border:3px solid #8a6030; border-radius:18px;
+  padding:14px 36px; display:flex; gap:28px; color:#ffe8b8; font-size:16px; margin-bottom:28px;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.8), 0 8px 24px rgba(0,0,0,0.8);
+  text-shadow:0 2px 4px #000;
+}
+.profile-box span { font-weight:bold; color:#ffd970; }
+#introBtn {
+  padding:16px 64px; font-size:28px; font-weight:bold; font-family:inherit; cursor:pointer;
+  border-radius:34px; border:5px solid #4a370f; color:#5a3a08;
+  background:linear-gradient(180deg, #ffe28a 0%, #e0a83a 55%, #b07d18 100%);
+  box-shadow:0 6px 18px rgba(0,0,0,0.7), inset 0 2px 5px rgba(255,255,230,0.6);
+}
+#introBtn:hover { filter:brightness(1.12); transform:scale(1.04); }
+
+#resumeBtn {
+  margin-top:14px; padding:12px 48px; font-size:22px; font-weight:bold; font-family:inherit; cursor:pointer;
+  border-radius:34px; border:4px solid #2e7d32; color:#e8f5e9;
+  background:linear-gradient(180deg, #4caf50 0%, #2e7d32 55%, #1b5e20 100%);
+  box-shadow:0 4px 16px rgba(76,175,80,0.5); transition:filter .15s, transform .15s;
+}
+#resumeBtn:hover { filter:brightness(1.15); transform:scale(1.04); }
+
+#collectionBtn {
+  margin-top:14px; padding:12px 48px; font-size:20px; font-weight:bold; font-family:inherit; cursor:pointer;
+  border-radius:34px; border:4px solid #4a370f; color:#d8c098;
+  background:linear-gradient(180deg, #6a4a28 0%, #4a2a10 55%, #2d1808 100%);
+  box-shadow:0 4px 14px rgba(0,0,0,0.6); transition:filter .15s, transform .15s;
+}
+#collectionBtn:hover { filter:brightness(1.15); transform:scale(1.04); }
+#intro .tip { color:#8a7a5a; font-size:14px; margin-top:36px; line-height:1.9; text-align:center; }
+
+/* ============ 拖拽相关 ============ */
+.card.dragging {
+  transition: none !important; opacity: 0.85; pointer-events: none;
+  box-shadow: 0 10px 30px rgba(255,200,60,0.55), 0 0 18px 4px rgba(255,220,80,0.5); z-index: 98 !important;
+}
+.card.drag-return { transition: transform .28s ease, opacity .22s !important; }
+#board.drag-valid {
+  box-shadow: inset 0 0 60px rgba(0,0,0,0.4), 0 10px 40px rgba(0,0,0,0.5), 0 0 34px 10px rgba(120,255,100,0.45) !important;
+  transition: box-shadow .18s;
+}
+#insertMarker {
+  position:absolute; width:6px; height:138px; top:440px; left:0;
+  background:linear-gradient(0deg, transparent 0%, rgba(255,220,100,0.2) 15%, rgba(255,220,100,0.75) 50%, rgba(255,220,100,0.2) 85%, transparent 100%);
+  border-radius:3px; box-shadow:0 0 16px 6px rgba(255,200,70,0.5); z-index:65; pointer-events:none; display:none;
+}
+
+/* ============ 关键词视觉 ============ */
+.minion.poisonous .mBody {
+  border-color:#3d9a28 !important; box-shadow:inset 0 -14px 22px rgba(0,0,0,0.35), 0 0 10px 3px rgba(60,220,40,0.55) !important;
+  transition: box-shadow .35s, border-color .35s;
+}
+.minion.poisonous .mBody::after { content:"☠️"; position:absolute; top:2px; left:6px; font-size:14px; z-index:2; }
+.minion.windfury::before { content:"💨"; position:absolute; top:-6px; left:50%; transform:translateX(-50%); font-size:16px; z-index:4; animation:windFloat 1.3s ease-in-out infinite; }
+@keyframes windFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-4px)} }
+.minion.lifesteal .mBody { box-shadow:inset 0 -14px 22px rgba(0,0,0,0.35), 0 0 10px 3px rgba(255,60,60,0.45) !important; }
+.minion.lifesteal .mBody::after { content:"🩸"; position:absolute; top:2px; right:6px; font-size:12px; z-index:2; }
+.minion.stealth { opacity:0.55; filter:brightness(0.65); transition:opacity .3s, filter .3s; }
+.minion.reborn .mBody { box-shadow:inset 0 -14px 22px rgba(0,0,0,0.35), 0 0 12px 4px rgba(100,180,255,0.7) !important; }
+.minion.frozen { filter:brightness(1.15) saturate(0.5) hue-rotate(180deg); transition:filter .4s ease; }
+.minion.frozen::after { content:"❄️"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:28px; z-index:4; pointer-events:none; opacity:0.75; animation:frozenPulse 1.6s ease-in-out infinite; }
+@keyframes frozenPulse { 0%,100%{opacity:0.75; transform:translate(-50%,-50%) scale(1)} 50%{opacity:0.95; transform:translate(-50%,-50%) scale(1.12)} }
+
+/* ============ 4. 收藏界面 — 完美羊皮纸卡牌展幅册 ============ */
+#collection {
+  position:absolute; inset:0; z-index:215;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 180, 70, 0.2) 0%, transparent 60%),
+    radial-gradient(ellipse at center, #2e1a0c 0%, #160b05 70%, #080301 100%);
+  display:none; flex-direction:column;
+}
+.col-topbar {
+  height:50px; display:flex; align-items:center; gap:12px; padding:0 16px;
+  background:linear-gradient(180deg, #5a3e20, #3e2810); border-bottom:2px solid #6a4a20; flex-shrink:0;
+}
+.col-title { color:#ffd970; font-size:22px; font-weight:bold; text-shadow:0 2px 3px #000; }
+.col-search-box { margin-left:auto; }
+.col-search-box input {
+  width:320px; height:32px; border-radius:16px; border:2px solid #6a4a20; padding:0 14px;
+  font-size:14px; background:rgba(0,0,0,0.5); color:#ffe8b8; font-family:inherit; outline:none;
+}
+.col-search-box input::placeholder { color:#8a7a5a; }
+.col-btn {
+  padding:8px 20px; border-radius:16px; border:2px solid #6a4a20; cursor:pointer;
+  font-size:16px; font-weight:bold; font-family:inherit; color:#5a3a08;
+  background:linear-gradient(180deg, #ffe28a, #d0a030 55%, #a07818);
+  box-shadow:0 2px 8px rgba(0,0,0,0.5); transition:filter .15s;
+}
+.col-btn:hover { filter:brightness(1.12); }
+.col-btn-sm {
+  padding:4px 12px; border-radius:12px; border:2px solid #6a4a20; cursor:pointer;
+  font-size:14px; font-family:inherit; color:#ffe8b0;
+  background:linear-gradient(180deg, #6a4a2a, #4a3018);
+  box-shadow:0 2px 6px rgba(0,0,0,0.5); transition:filter .15s;
+}
+.col-btn-sm:hover { filter:brightness(1.15); }
+.col-btn-sm.sel { background:linear-gradient(180deg, #ffe28a, #d0a030); color:#5a3a08; border-color:#b08020; }
+
+/* 整体主体容器 */
+.col-body { display:flex; flex:1; overflow:hidden; gap:12px; padding:10px 14px; }
+
+/* 左侧主内容区（包含顶部筛选 + 中央卡牌册） */
+.col-main { flex:1; display:flex; flex-direction:column; gap:8px; height:100%; overflow:hidden; }
+
+/* 顶部横向筛选栏 */
+.col-filter-bar {
+  background:rgba(20, 12, 4, 0.65); border:2px solid #5a3e20; border-radius:14px;
+  padding:6px 16px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; flex-shrink:0;
+  box-shadow:0 4px 10px rgba(0,0,0,0.4);
+}
+.filter-item { display:flex; align-items:center; gap:6px; }
+.filter-label { color:#b09a6e; font-size:13px; font-weight:bold; white-space:nowrap; }
+
+.col-filter-btns { display:flex; gap:4px; }
+.col-filter-btns .col-fbtn {
+  padding:3px 10px; border-radius:10px; border:1px solid #5a3a18; cursor:pointer;
+  font-size:12px; color:#d8c098; background:rgba(0,0,0,0.4); font-family:inherit; transition:all .15s;
+}
+.col-filter-btns .col-fbtn:hover { background:rgba(120,100,60,0.5); }
+.col-filter-btns .col-fbtn.sel { background:#d0a030; color:#3a1c00; border-color:#b08020; font-weight:bold; }
+
+.col-cost-grid { display:flex; gap:4px; }
+.col-cost-grid .col-cost-btn {
+  width:32px; height:26px; border-radius:6px; border:1px solid #5a3a18; cursor:pointer;
+  font-size:13px; font-weight:bold; color:#d8c098; background:rgba(0,0,0,0.4);
+  text-align:center; line-height:24px; font-family:inherit; transition:all .15s;
+}
+.col-cost-grid .col-cost-btn:hover { background:rgba(120,100,60,0.5); }
+.col-cost-grid .col-cost-btn.sel { background:#d0a030; color:#3a1c00; border-color:#b08020; }
+
+.col-mech-grid { display:flex; gap:3px; flex-wrap:wrap; max-width:480px; }
+.col-mech-grid .col-mbtn {
+  padding:2px 7px; border-radius:8px; border:1px solid #4a2a10; cursor:pointer;
+  font-size:11px; color:#c8b088; background:rgba(0,0,0,0.4); font-family:inherit; transition:all .15s;
+}
+.col-mech-grid .col-mbtn:hover { background:rgba(120,100,60,0.5); }
+.col-mech-grid .col-mbtn.sel { background:#8a5a20; color:#ffe8b8; border-color:#b08020; }
+
+.col-center {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: visible; padding: 0 20px;
+}
+
+/* 典藏巨幅卡牌书本外框 (羊皮纸纸张) */
+.book-spread {
+  width: 1060px; height: 570px; display: flex; position: relative;
+  background: linear-gradient(135deg, #e3d3ba 0%, #d8c3a5 50%, #cbb193 100%);
+  border: 10px solid #5a3818; border-radius: 24px;
+  outline: 4px solid #2d1808;
+  box-shadow: inset 0 0 50px rgba(90, 50, 20, 0.5), 0 16px 45px rgba(0,0,0,0.9);
+  padding: 12px 16px; box-sizing: border-box;
+}
+
+/* 中央皮质书脊 */
+.book-spine {
+  position: absolute; left: 50%; top: 0; bottom: 0; width: 22px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, rgba(30,15,5,0.85), rgba(255,210,120,0.3) 50%, rgba(30,15,5,0.85));
+  box-shadow: 0 0 20px rgba(0,0,0,0.8); z-index: 10;
+}
+
+/* 左右单页 (4列 x 2行) */
+.book-page {
+  flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, 1fr);
+  gap: 12px 10px; padding: 12px 16px; justify-items: center; align-items: center; z-index: 2;
+  box-sizing: border-box;
+}
+
+/* 关键避让：中缝两边留出 36px 绝对安全区 */
+#pageLeft { padding-right: 36px; }
+#pageRight { padding-left: 36px; }
+
+/* 关键：调整卡牌在书页内的适配尺寸，防止卡牌大到跑框 */
+.book-page .card {
+  width: 102px !important;
+  height: 144px !important;
+  border-width: 3px !important;
+  border-radius: 8px !important;
+}
+.book-page .card .cArt { width: 80px; height: 56px; font-size: 34px; top: 8px; }
+.book-page .card .cName { top: 68px; font-size: 11px; height: 20px; line-height: 20px; }
+.book-page .card .cText { top: 90px; font-size: 10px; padding: 2px; }
+.book-page .card .cCost { width: 32px; height: 32px; font-size: 18px; line-height: 28px; top: -6px; left: -6px; }
+.book-page .card .cAtk, .book-page .card .cHp { width: 32px; height: 32px; font-size: 17px; line-height: 28px; bottom: -6px; }
+.book-page .card .cAtk { left: -6px; }
+.book-page .card .cHp { right: -6px; }
+
+.book-page .col-card-wrap {
+  transform: scale(1);
+  transition: transform .18s ease-out, z-index .18s;
+}
+
+/* 悬浮预览放大 */
+.book-page .col-card-wrap:hover {
+  transform: scale(1.18) translateY(-6px);
+  z-index: 30;
+}
+.book-page .col-card-wrap .card { position:static !important; }
+.book-page .col-card-wrap .card.not-owned { filter:grayscale(1) brightness(0.45); opacity:0.75; }
+.book-page .col-card-wrap .card * { pointer-events:none; }
+
+.col-card-wrap { position:relative; cursor:pointer; transition:transform .15s; flex:0 0 auto; touch-action:none; }
+.col-owned-badge {
+  position:absolute; top:-4px; right:-4px; z-index:3; background:#2ecc40; color:#fff;
+  font-size:14px; font-weight:bold; padding:2px 8px; border-radius:10px; text-shadow:0 1px 2px #000; box-shadow:0 0 6px rgba(46,204,64,0.5);
+}
+.col-empty { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#8a7a5a; font-size:22px; text-align:center; }
+
+/* 翻页按钮：置顶 z-index: 100 挂在卡牌册左右皮质边缘 */
+.page-nav-btn {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  z-index: 100 !important; /* 最高层级置顶，防任何遮挡 */
+  width: 44px; height: 84px; border-radius: 12px; border: 3px solid #8a6a30;
+  background: linear-gradient(180deg, #ffe28a 0%, #c98b2c 60%, #7a5210 100%);
+  color: #3a2000; font-size: 26px; font-weight: bold; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.8); transition: all .15s;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: auto !important;
+}
+.page-nav-btn:hover:not(:disabled) { filter: brightness(1.25); transform: translateY(-50%) scale(1.08); }
+.page-nav-btn:disabled { opacity: 0.2; filter: grayscale(0.9); cursor: default; }
+
+/* 紧贴卡牌书本外框两侧 */
+.page-prev { left: -26px !important; }
+.page-next { right: -26px !important; }
+
+/* 页码 */
+.page-bar-embedded {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 15;
+  color: #ffd970; font-size: 14px; font-weight: bold; text-shadow: 0 2px 4px #000;
+  background: rgba(10, 6, 2, 0.88); padding: 2px 18px; border-radius: 12px; border: 1px solid #6a4a20;
+}
+
+.col-right {
+  width:290px; flex-shrink:0; display:flex; flex-direction:column; gap:8px;
+  background:rgba(0,0,0,0.3); border-radius:12px; padding:10px; border:2px solid #4a3018;
+  transition: border-color .2s, box-shadow .2s;
+}
+.deck-header { display:flex; gap:6px; align-items:center; }
+.deck-header select {
+  flex:1; height:32px; border-radius:8px; border:2px solid #4a3018; padding:0 8px;
+  font-size:14px; font-family:inherit; background:rgba(0,0,0,0.5); color:#ffe8b8; cursor:pointer;
+}
+.deck-header select option { background:#2d1f0e; color:#ffe8b8; }
+.deck-card-list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+.deck-card-entry {
+  display:flex; align-items:center; gap:8px; padding:4px 8px; background:rgba(0,0,0,0.4);
+  border-radius:8px; border:1px solid #3a2010; cursor:pointer; transition:background .15s;
+}
+.deck-card-entry:hover { background:rgba(60,40,20,0.6); }
+.deck-card-entry .dc-cost {
+  width:28px; height:28px; border-radius:50%; text-align:center; line-height:28px;
+  font-size:14px; font-weight:bold; color:#fff; background:radial-gradient(circle at 35% 30%, #9fd0ff, #2277dd 60%, #0b3a80); text-shadow:0 1px 2px #000; flex-shrink:0;
+}
+.deck-card-entry .dc-name { flex:1; color:#e8d8ae; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.deck-card-entry .dc-count { color:#8a7a5a; font-size:13px; }
+.deck-stats { color:#b09a6e; font-size:14px; text-align:center; }
+
+.col-bottombar {
+  height:40px; display:flex; align-items:center; gap:16px; padding:0 16px;
+  background:linear-gradient(180deg, #3e2810, #2d1c08); border-top:2px solid #6a4a20; flex-shrink:0; color:#d8c098; font-size:14px;
+}
+.col-bottombar span { font-weight:bold; }
+
+.col-modal { position:absolute; inset:0; z-index:300; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.75); }
+.col-modal.show { display:flex; }
+.col-modal-box {
+  background:linear-gradient(180deg, #5a3e20, #3a2410); border:3px solid #8a6a30; border-radius:16px;
+  padding:24px; text-align:center; max-width:400px; box-shadow:0 10px 40px rgba(0,0,0,0.7);
+}
+.col-modal-box .cm-title { color:#ffd970; font-size:22px; font-weight:bold; margin-bottom:12px; }
+.col-modal-box .cm-text { color:#d8c098; font-size:15px; margin-bottom:18px; line-height:1.6; }
+.col-modal-box .cm-btns { display:flex; gap:10px; justify-content:center; }
+
+/* 按钮与通用魔幻按钮增强 */
+.col-btn, #introBtn, #goBtn {
+  background:linear-gradient(180deg, #ffe28a 0%, #d0a030 50%, #906810 100%) !important;
+  border-color:#4a300a !important;
+  box-shadow:0 4px 14px rgba(0,0,0,0.6), inset 0 2px 4px rgba(255,255,230,0.7) !important;
+  text-shadow:0 1px 2px rgba(255,245,200,0.8) !important;
+}
+.col-btn:hover, #introBtn:hover, #goBtn:hover {
+  filter:brightness(1.18) !important;
+}
+
+#hint {
+  position:absolute; left:50%; bottom:246px; transform:translateX(-50%); z-index:60;
+  color:#ffe9b0; font-size:17px; text-shadow:0 2px 4px #000; pointer-events:none; display:none;
+  background:rgba(20,12,4,0.75); padding:6px 22px; border-radius:18px; border:1px solid rgba(255,210,110,0.35);
+}
+
+	/* ============ 金币与商店入口 ============ */
+	.gold-badge {
+	  color: #ffe27a; font-size: 16px; font-weight: bold; text-shadow: 0 2px 4px #000;
+	  background: rgba(0,0,0,0.6); padding: 4px 14px; border-radius: 14px; border: 1.5px solid #d0a030;
+	  display: flex; align-items: center; gap: 6px;
+	}
+
+		/* ============ 全屏冲击与视觉特效引擎 ============ */
+
+		/* 1. 震屏动画 (剧烈/中度) */
+		.shake-heavy { animation: stageShakeHeavy 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+		.shake-light { animation: stageShakeLight 0.3s ease-out; }
+
+		@keyframes stageShakeHeavy {
+		  10%, 90% { transform: translate(-50%, -50%) translate3d(-6px, 4px, 0) rotate(-1deg); }
+		  20%, 80% { transform: translate(-50%, -50%) translate3d(8px, -6px, 0) rotate(1.5deg); }
+		  30%, 50%, 70% { transform: translate(-50%, -50%) translate3d(-10px, 8px, 0) rotate(-2deg); }
+		  40%, 60% { transform: translate(-50%, -50%) translate3d(10px, -8px, 0) rotate(2deg); }
+		}
+
+		@keyframes stageShakeLight {
+		  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+		  25% { transform: translate(-49%, -51%) scale(1.01); }
+		  75% { transform: translate(-51%, -49%) scale(1.01); }
+		}
+
+		/* 2. 冰霜冻结全屏闪屏 */
+		.ice-flash-overlay {
+		  position: absolute; inset: 0; z-index: 180; pointer-events: none;
+		  background: radial-gradient(circle, rgba(160, 230, 255, 0.6) 0%, rgba(20, 100, 220, 0.4) 60%, transparent 100%);
+		  animation: iceFlashAn 0.7s ease-out forwards;
+		}
+		@keyframes iceFlashAn { 0% { opacity: 0; transform: scale(0.8); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.1); } }
+
+		/* 3. 虚空/黑洞门柱特效 */
+		.vortex-hole {
+		  position: absolute; width: 300px; height: 300px; border-radius: 50%;
+		  left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0);
+		  background: radial-gradient(circle, rgba(180, 40, 255, 0.9) 0%, rgba(60, 0, 120, 0.8) 50%, transparent 75%);
+		  box-shadow: 0 0 50px #aa20ff; pointer-events: none; z-index: 95;
+		  animation: vortexPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+		}
+		@keyframes vortexPop { 0% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 1; } 50% { transform: translate(-50%, -50%) scale(2.2) rotate(180deg); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(3) rotate(360deg); opacity: 0; } }
+
+		/* 4. 传说随从登场金束爆发 */
+		.legendary-entry-burst {
+		  position: absolute; width: 220px; height: 220px; border-radius: 50%;
+		  transform: translate(-50%, -50%) scale(0); pointer-events: none; z-index: 95;
+		  background: radial-gradient(circle, rgba(255, 230, 120, 0.95) 0%, rgba(255, 160, 0, 0.7) 40%, transparent 75%);
+		  box-shadow: 0 0 40px #ffaa00;
+		  animation: legBurst 0.6s ease-out forwards;
+		}
+		@keyframes legBurst { 0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; } 50% { transform: translate(-50%, -50%) scale(1.6); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; } }
+
+	/* ============ 原汁原味 3D 发现 (Discover) 三选一 Modal ============ */
+	#discoverModal {
+	  position: absolute; inset: 0; z-index: 260; display: none; align-items: center; justify-content: center;
+	  background: radial-gradient(circle at center, rgba(30,18,8,0.92) 0%, rgba(5,2,1,0.98) 100%);
+	}
+
+	.discover-box {
+	  text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;
+	}
+
+	.discover-title {
+	  color: #ffd970; font-size: 32px; font-weight: bold; margin-bottom: 30px;
+	  text-shadow: 0 0 20px rgba(255,180,60,0.8), 0 4px 8px #000; letter-spacing: 2px;
+	}
+
+	.discover-cards-container {
+	  display: flex; gap: 50px; justify-content: center; align-items: center; min-height: 280px;
+	}
+
+	.discover-card-wrap {
+	  position: relative !important; width: 132px; height: 186px;
+	  transform: scale(1.3) !important; cursor: pointer;
+	  transition: transform .22s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter .22s !important;
+	}
+
+	.discover-card-wrap .card {
+	  position: relative !important; left: 0 !important; top: 0 !important; transform: none !important;
+	}
+
+	.discover-card-wrap:hover {
+	  transform: scale(1.48) translateY(-12px) !important;
+	  filter: drop-shadow(0 15px 30px rgba(255,215,0,0.95)) !important;
+	  z-index: 30;
+	}
+
+	/* ============ 统一主菜单 5 大模式黄金/湛蓝/紫晶按钮样式 ============ */
+	#introBtn, #netLobbyBtn, #arenaBtn, #shopBtn, #collectionBtn {
+	  width: 320px; height: 54px; margin-top: 10px; font-size: 22px; font-weight: bold;
+	  font-family: inherit; cursor: pointer; border-radius: 28px; border: 4px solid #8a6a20;
+	  color: #5a3a08;
+	  background: linear-gradient(180deg, #ffe890 0%, #e0ab3a 55%, #b07818 100%);
+	  box-shadow: 0 6px 18px rgba(0,0,0,0.7), inset 0 2px 5px rgba(255,255,230,0.6);
+	  transition: filter .15s, transform .15s;
+	  display: flex; align-items: center; justify-content: center; gap: 8px;
+	}
+
+	/* 局域网对战专属湛蓝宝石按钮 */
+	#netLobbyBtn {
+	  border-color: #2080ff !important; color: #ffffff !important;
+	  background: linear-gradient(180deg, #40a0ff 0%, #1050cc 55%, #002080 100%) !important;
+	  box-shadow: 0 6px 18px rgba(30,120,255,0.6), inset 0 2px 5px rgba(200,230,255,0.6) !important;
+	  text-shadow: 0 2px 4px #000 !important;
+	}
+
+	/* 竞技场专属紫晶炫彩按钮 */
+	#arenaBtn {
+	  border-color: #a020f0 !important; color: #ffffff !important;
+	  background: linear-gradient(180deg, #c060ff 0%, #8010cc 55%, #400080 100%) !important;
+	  box-shadow: 0 6px 18px rgba(120,20,220,0.6), inset 0 2px 5px rgba(255,220,255,0.6) !important;
+	  text-shadow: 0 2px 4px #000 !important;
+	}
+
+	#introBtn:hover, #netLobbyBtn:hover, #arenaBtn:hover, #shopBtn:hover, #collectionBtn:hover {
+	  filter: brightness(1.18); transform: scale(1.04);
+	}
+
+	/* ============ 竞技场完全隔离不透明遮罩 (彻底防重叠) ============ */
+	#arenaModal, #arenaRewardsModal {
+	  position: absolute; inset: 0; z-index: 235; display: none; align-items: center; justify-content: center;
+	  background: #0f0803; /* 100% 遮光纯色保底 */
+	  background: radial-gradient(circle at center, rgba(35,20,10,0.98) 0%, rgba(5,2,1,1) 100%);
+	}
+
+	/* ============ 竞技场双栏物理隔离布局 (彻底解决下沉与重叠) ============ */
+	.arena-box {
+	  width: 1180px; height: 650px; background: linear-gradient(180deg, #4a3018, #2a1a0a);
+	  border: 6px solid #8a6a30; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.95);
+	  display: flex; flex-direction: column; overflow: hidden; position: relative;
+	}
+
+	/* 竞技场主体：左右物理隔离 */
+	.arena-body {
+	  position: relative; width: 100%; height: 590px; display: flex; overflow: hidden;
+	}
+
+	/* 左侧主区：860px 宽度，绝对固定 */
+	.arena-left-main {
+	  width: 860px; height: 100%; position: relative;
+	  display: flex; flex-direction: column; align-items: center; justify-content: center;
+	}
+
+	/* A. 选牌区：锁定在左侧中央，绝对不下沉 */
+	#arenaDraftArea {
+	  width: 100%; height: 100%; display: flex; flex-direction: column;
+	  align-items: center; justify-content: center; position: absolute; inset: 0;
+	}
+
+	#arenaRoundTxt {
+	  color: #ffd970; font-size: 24px; margin-bottom: 24px; text-shadow: 0 2px 4px #000;
+	}
+
+	/* 强制解除卡牌绝对定位，实现三张卡牌并排平铺 */
+	.draft-card-wrap {
+	  position: relative !important;
+	  width: 132px; height: 186px;
+	  cursor: pointer;
+	  transition: transform .2s ease-out, filter .2s;
+	  display: inline-block !important;
+	}
+
+	.draft-card-wrap .card {
+	  position: relative !important;
+	  left: 0 !important; top: 0 !important;
+	  transform: none !important;
+	}
+
+	.draft-card-wrap:hover {
+	  transform: scale(1.18) translateY(-12px) !important;
+	  filter: drop-shadow(0 12px 24px rgba(255,215,0,0.85));
+	  z-index: 30;
+	}
+
+	#arenaChoicesBox {
+	  display: flex; flex-direction: row; justify-content: center; align-items: center;
+	  gap: 60px; min-height: 260px; width: 100%;
+	}
+
+	/* ============ 商店弹窗界面 ============ */
+	#shopModal {
+	  position: absolute; inset: 0; z-index: 230; display: none; align-items: center; justify-content: center;
+	  background: radial-gradient(circle at center, rgba(30,18,8,0.92) 0%, rgba(10,5,2,0.98) 100%);
+	}
+
+	.shop-box {
+	  width: 1000px; height: 640px; background: linear-gradient(180deg, #4a3018, #2a1a0a);
+	  border: 6px solid #8a6a30; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+	  display: flex; flex-direction: column; overflow: hidden; position: relative;
+	}
+
+	.shop-header {
+	  height: 60px; background: linear-gradient(180deg, #6a4a28, #4a3018);
+	  border-bottom: 3px solid #8a6a30; display: flex; align-items: center; padding: 0 24px; gap: 16px;
+	}
+
+	.shop-body { flex: 1; display: flex; padding: 24px; gap: 24px; }
+
+	.shop-left {
+	  flex: 1; background: rgba(0,0,0,0.4); border-radius: 16px; border: 2px solid #5a3a18;
+	  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center;
+	}
+
+	.pack-art-big {
+	  width: 160px; height: 220px; background: linear-gradient(145deg, #7a3a18, #3a1a08);
+	  border: 5px solid #d0a030; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(255,180,60,0.4);
+	  display: flex; align-items: center; justify-content: center; font-size: 72px; margin-bottom: 20px; position: relative;
+	}
+	.shop-buy-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 380px; }
+
+	.shop-right {
+	  width: 360px; background: rgba(0,0,0,0.4); border-radius: 16px; border: 2px solid #5a3a18;
+	  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center;
+	}
+
+	/* ============ 3D 开包舞台 ============ */
+	#packStage {
+	  position: absolute; inset: 0; z-index: 240; display: none; flex-direction: column;
+	  align-items: center; justify-content: center;
+	  background: radial-gradient(circle at center, rgba(40,20,8,0.95) 0%, rgba(5,2,1,0.99) 100%);
+	}
+
+	.pack-cards-container {
+	  width: 1100px; height: 380px; display: flex; align-items: center; justify-content: center;
+	  gap: 30px; position: relative; perspective: 1200px;
+	}
+
+	/* 3D 翻牌卡槽 */
+	.pack-card-wrap {
+	  width: 140px; height: 196px; perspective: 1000px; cursor: pointer; position: relative;
+	  transition: transform 0.25s ease-out;
+	}
+	.pack-card-wrap:hover { transform: translateY(-12px) scale(1.06); }
+
+	.pack-card-inner {
+	  width: 100%; height: 100%; position: relative; transform-style: preserve-3d;
+	  transition: transform 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+	}
+	.pack-card-wrap.flipped .pack-card-inner { transform: rotateY(180deg); }
+
+	.card-face {
+	  position: absolute; inset: 0; backface-visibility: hidden; border-radius: 12px;
+	}
+	.card-face-back {
+	  background: radial-gradient(circle at 50% 40%, #7a4a9c 0%, #3a1560 60%, #1a0630 100%);
+	  border: 4px solid #d0a030; box-shadow: 0 8px 20px rgba(0,0,0,0.8);
+	  display: flex; align-items: center; justify-content: center; font-size: 52px; color: #ffe27a;
+	}
+
+	/* 卡背光晕预览 */
+	.pack-card-wrap[data-rarity="common"]:hover .card-face-back { box-shadow: 0 0 20px 6px rgba(255,255,255,0.6); }
+	.pack-card-wrap[data-rarity="rare"]:hover .card-face-back { box-shadow: 0 0 25px 8px rgba(30,140,255,0.85); }
+	.pack-card-wrap[data-rarity="epic"]:hover .card-face-back { box-shadow: 0 0 30px 10px rgba(180,40,255,0.9); }
+	.pack-card-wrap[data-rarity="legendary"]:hover .card-face-back { box-shadow: 0 0 40px 14px rgba(255,190,40,1); }
+
+	.card-face-front { transform: rotateY(180deg); display: flex; align-items: center; justify-content: center; }
+
+	/* 传说卡牌光束特效 */
+	.legendary-rays {
+	  position: absolute; width: 500px; height: 500px; left: 50%; top: 50%;
+	  transform: translate(-50%, -50%); pointer-events: none; z-index: -1; display: none;
+	  background: radial-gradient(circle, rgba(255,215,0,0.8) 0%, rgba(255,140,0,0.4) 40%, transparent 70%);
+	  animation: spinRays 8s linear infinite;
+	}
+	@keyframes spinRays { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+
+	/* 震屏动画 */
+	.shake-screen { animation: packShake 0.5s ease-in-out; }
+	@keyframes packShake {
+	  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+	  20% { transform: translate(-48%, -52%) scale(1.02); }
+	  40% { transform: translate(-52%, -48%) scale(1.02); }
+	  60% { transform: translate(-49%, -51%) scale(1.01); }
+	  80% { transform: translate(-51%, -49%) scale(1.01); }
+	}
+
+	/* 金色传说巨幅文字横幅 */
+	#legBanner {
+	  position: absolute; top: 15%; left: 50%; transform: translateX(-50%) scale(0);
+	  color: #ffe870; font-size: 72px; font-weight: bold; letter-spacing: 12px;
+	  text-shadow: 0 0 30px #ff9000, 0 4px 10px #000; z-index: 300; pointer-events: none;
+	  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+	}
+	#legBanner.show { transform: translateX(-50%) scale(1.2); }
+
+	/* ============ 1. 跨平台 3D 矢量金币 (彻底消除  乱码) ============ */
+	.gold-coin {
+	  display: inline-block; width: 18px; height: 18px; border-radius: 50%;
+	  background: radial-gradient(circle at 35% 30%, #fff0a0, #ffd700 50%, #b88600 100%);
+	  border: 1.5px solid #7a5210; box-shadow: 0 0 6px rgba(255,215,0,0.6);
+	  vertical-align: middle; margin: 0 3px; position: relative; top: -1px;
+	}
+	.gold-coin::after {
+	  content: "$"; position: absolute; inset: 0; display: flex; align-items: center;
+	  justify-content: center; color: #5a3a08; font-size: 11px; font-weight: bold;
+	}
+
+	/* ============ 2. 战利品高亮卡牌造型 (解决图2字迹隐蔽看不到) ============ */
+	.reward-grid {
+	  display: flex; justify-content: center; gap: 20px; margin: 24px 0;
+	}
+	.reward-item {
+	  padding: 14px 28px;
+	  background: linear-gradient(180deg, rgba(65, 38, 18, 0.95), rgba(25, 12, 5, 0.98));
+	  border: 2.5px solid #ffd970; border-radius: 18px;
+	  color: #ffe27a; font-size: 22px; font-weight: bold; text-shadow: 0 2px 4px #000;
+	  box-shadow: 0 8px 20px rgba(0,0,0,0.85), inset 0 0 12px rgba(255,215,0,0.25);
+	  display: flex; align-items: center; justify-content: center; gap: 8px;
+	}
+
+	/* B. 匹配区：锁定在左侧中央，绝对不跑偏重叠 */
+	#arenaRunArea {
+	  width: 100%; height: 100%; display: none; flex-direction: column;
+	  align-items: center; justify-content: center; gap: 20px; position: absolute; inset: 0;
+	}
+
+	.arena-key-box {
+	  width: 420px; background: rgba(10, 5, 2, 0.85); border-radius: 20px;
+	  border: 3px solid #8a6a30; padding: 18px 30px; display: flex;
+	  flex-direction: column; align-items: center; justify-content: center;
+	  box-shadow: inset 0 0 25px rgba(0,0,0,0.9), 0 10px 30px rgba(0,0,0,0.8);
+	}
+
+	.key-icon { font-size: 60px; line-height: 1; margin-bottom: 4px; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.9)); }
+	.arena-wins-txt { color: #ffe27a; font-size: 20px; font-weight: bold; margin-top: 8px; }
+	.arena-wins-txt span { font-size: 32px; color: #2ecc40; }
+
+	.arena-run-btns { display: flex; gap: 20px; align-items: center; justify-content: center; }
+
+	/* 右侧套牌侧边栏：固定在最右边 270px 宽度 */
+	.arena-right-deck {
+	  position: absolute; right: 16px; top: 16px; bottom: 16px; width: 270px;
+	  background: rgba(0,0,0,0.45); border-radius: 16px; border: 2px solid #5a3a18;
+	  display: flex; flex-direction: column; padding: 12px; gap: 10px; box-sizing: border-box;
+	}
+	.arena-right-deck .deck-card-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+
+	/* ============ 4. 对局战术结算宝箱 Modal ============ */
+	#battleLootModal {
+	  position: absolute; inset: 0; z-index: 280; display: none; align-items: center; justify-content: center;
+	  background: rgba(0, 0, 0, 0.88);
+	}
+	.loot-vault-box {
+	  width: 600px; background: linear-gradient(180deg, #4a3018, #2a1a0a);
+	  border: 5px solid #8a6a30; border-radius: 24px; padding: 28px; text-align: center;
+	  box-shadow: 0 15px 50px rgba(0,0,0,0.95);
+	}
+
+	/* ============ 卡牌稀有度菱形宝石 ============ */
+	/* ============ 卡牌稀有度菱形宝石 (含大/小卡牌自适应) ============ */
+	.card .cGem {
+	  position: absolute; top: 78px; left: 50%; transform: translateX(-50%) rotate(45deg);
+	  width: 14px; height: 14px; border: 2px solid #2a1c08; z-index: 5;
+	  box-shadow: 0 0 6px rgba(0,0,0,0.8);
+	}
+	.card .cGem.common { background: radial-gradient(circle, #e0e8f0, #8090a0); }
+	.card .cGem.rare { background: radial-gradient(circle, #60b0ff, #1050cc); box-shadow: 0 0 8px #2080ff; }
+	.card .cGem.epic { background: radial-gradient(circle, #d060ff, #7010cc); box-shadow: 0 0 8px #aa20ff; }
+	.card .cGem.legendary { background: radial-gradient(circle, #ffe060, #d08000); box-shadow: 0 0 10px #ffaa00; }
+
+	/* 关键修复：收藏册微缩卡牌上的宝石精准向上提位与缩小，绝对不遮挡文字 */
+	.book-page .card .cGem {
+	  top: 59px !important;
+	  width: 10px !important;
+	  height: 10px !important;
+	  border-width: 1.5px !important;
+	}
+
+	/* 卡牌文字防溢出动态字号 */
+	.card .cName.small-name { font-size: 11px !important; }
+	.card .cText.small-text { font-size: 9.5px !important; line-height: 1.1 !important; padding: 2px !important; }
+
+	/* ============ 出牌历史记录栏 (History Log) ============ */
+	#historyBar {
+	  position: absolute; left: 24px; top: 180px; width: 64px; display: flex;
+	  flex-direction: column; gap: 8px; z-index: 50; pointer-events: auto;
+	}
+	.history-item {
+	  width: 54px; height: 54px; border-radius: 50%; border: 3px solid #6a4a20;
+	  background: radial-gradient(circle, #3d2a1a, #1a0f07); display: flex; align-items: center;
+	  justify-content: center; font-size: 26px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.7);
+	  position: relative; transition: transform .15s;
+	}
+	.history-item:hover { transform: scale(1.18); z-index: 60; }
+	.history-item.side-me { border-color: #3b82f6; box-shadow: 0 0 10px rgba(59,130,246,0.6); }
+	.history-item.side-ai { border-color: #ef4444; box-shadow: 0 0 10px rgba(239,68,68,0.6); }
+
+	/* ============ 批量开包总结弹窗优化 ============ */
+	#massSummaryModal {
+	  position: absolute; inset: 0; z-index: 250; display: none; align-items: center; justify-content: center;
+	  background: rgba(0, 0, 0, 0.88);
+	}
+
+	.mass-summary-box {
+	  width: 900px; max-height: 640px; background: linear-gradient(180deg, #4a3018, #2a1a0a);
+	  border: 5px solid #8a6a30; border-radius: 24px; padding: 24px; text-align: center;
+	  box-shadow: 0 15px 50px rgba(0,0,0,0.95); display: flex; flex-direction: column;
+	}
+
+	.mass-stats-grid {
+	  display: flex; justify-content: center; gap: 16px; margin: 16px 0;
+	  background: rgba(0,0,0,0.45); padding: 12px; border-radius: 14px; border: 1px solid #5a3a18;
+	}
+
+	.mass-stat-card {
+	  padding: 8px 18px; border-radius: 10px; font-size: 15px; font-weight: bold; color: #fff;
+	  text-shadow: 0 2px 4px #000;
+	}
+	.mass-stat-card.leg { background: linear-gradient(180deg, #d08000, #703000); border: 2px solid #ffaa00; }
+	.mass-stat-card.epic { background: linear-gradient(180deg, #8010cc, #400070); border: 2px solid #aa20ff; }
+	.mass-stat-card.rare { background: linear-gradient(180deg, #1050cc, #002070); border: 2px solid #2080ff; }
+	.mass-stat-card.common { background: linear-gradient(180deg, #506070, #253040); border: 2px solid #8090a0; }
+
+	/* 战利品文本清单大展示框 */
+	.mass-cards-preview {
+	  display: flex; flex-wrap: wrap; gap: 10px; min-height: 260px; max-height: 330px;
+	  overflow-y: auto; justify-content: flex-start; align-content: flex-start;
+	  padding: 16px; background: rgba(10, 5, 2, 0.65); border-radius: 16px;
+	  border: 2px solid #5a3a18; box-shadow: inset 0 0 20px rgba(0,0,0,0.85);
+	}
+
+	/* 战利品卡牌胶囊标签 */
+	.loot-badge {
+	  display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px;
+	  font-size: 14px; font-weight: bold; background: rgba(20, 10, 5, 0.7);
+	  border: 2px solid #5a3a18; color: #ffe8b8; text-shadow: 0 1px 2px #000;
+	  box-shadow: 0 3px 8px rgba(0,0,0,0.5); transition: transform .15s;
+	}
+	.loot-badge:hover { transform: translateY(-2px) scale(1.04); }
+
+	/* 法力水晶图标 */
+	.loot-cost {
+	  width: 22px; height: 22px; border-radius: 50%;
+	  background: radial-gradient(circle at 35% 30%, #9fd0ff, #2277dd 60%, #0b3a80);
+	  color: #fff; font-size: 12px; font-weight: bold; text-align: center; line-height: 22px;
+	  border: 1px solid #0a2540; flex-shrink: 0; text-shadow: 0 1px 2px #000;
+	}
+
+	/* 稀有度文本着重高亮 */
+	.loot-badge.legendary {
+	  background: linear-gradient(135deg, rgba(180, 90, 0, 0.9), rgba(80, 30, 0, 0.95));
+	  border-color: #ffaa00; color: #ffe870; box-shadow: 0 0 14px rgba(255, 170, 0, 0.7);
+	  font-size: 15px;
+	}
+	.loot-badge.epic {
+	  background: linear-gradient(135deg, rgba(110, 20, 170, 0.9), rgba(50, 0, 80, 0.95));
+	  border-color: #aa20ff; color: #f0a0ff; box-shadow: 0 0 10px rgba(170, 32, 255, 0.6);
+	}
+	.loot-badge.rare {
+	  background: linear-gradient(135deg, rgba(10, 60, 160, 0.85), rgba(0, 20, 80, 0.95));
+	  border-color: #2080ff; color: #90c8ff;
+	}
+	.loot-badge.common {
+	  background: rgba(35, 22, 10, 0.8); border-color: #6a4a20; color: #d8c098;
+	}
+
+	.loot-count {
+	  background: rgba(0, 0, 0, 0.65); padding: 2px 8px; border-radius: 10px;
+	  color: #ffd970; font-size: 13px; border: 1px solid rgba(255,217,112,0.4); margin-left: 2px;
+	}
+
+
+        /* ============ 对战准备大厅 Modal ============ */
+        #matchLobbyModal {
+          position: absolute; inset: 0; z-index: 220; display: none; align-items: center; justify-content: center;
+          background: radial-gradient(circle at center, rgba(30,18,8,0.92) 0%, rgba(10,5,2,0.98) 100%);
+        }
+
+        .lobby-box {
+          width: 1100px; height: 680px; background: linear-gradient(180deg, #4a3018, #2a1a0a);
+          border: 6px solid #8a6a30; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+          display: flex; flex-direction: column; overflow: hidden; position: relative;
+        }
+
+        .lobby-header {
+          height: 60px; background: linear-gradient(180deg, #6a4a28, #4a3018);
+          border-bottom: 3px solid #8a6a30; display: flex; align-items: center; padding: 0 24px;
+        }
+
+        .lobby-body { flex: 1; display: flex; padding: 20px; gap: 20px; }
+
+        /* 左侧套牌选择区 */
+        .lobby-left {
+          width: 380px; background: rgba(0,0,0,0.4); border-radius: 16px; border: 2px solid #5a3a18;
+          display: flex; flex-direction: column; padding: 16px;
+        }
+
+        .lobby-deck-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+        .lobby-deck-card {
+          padding: 12px 16px; background: linear-gradient(90deg, #3a2210, #221208);
+          border: 2px solid #5a3a18; border-radius: 12px; cursor: pointer; color: #ffe8b8;
+          display: flex; align-items: center; justify-content: space-between; transition: all .15s;
+        }
+        .lobby-deck-card:hover { border-color: #ffd970; background: linear-gradient(90deg, #5a3218, #3a1c08); }
+        .lobby-deck-card.sel { border-color: #ffe27a; box-shadow: 0 0 12px rgba(255,226,122,0.6); background: linear-gradient(90deg, #7a4a20, #4a2810); }
+
+        /* 右侧 Boss & 难度选择区 */
+        .lobby-right {
+          flex: 1; background: rgba(0,0,0,0.4); border-radius: 16px; border: 2px solid #5a3a18;
+          display: flex; flex-direction: column; padding: 16px;
+        }
+
+        .boss-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }
+        .boss-card {
+          background: linear-gradient(180deg, #3a2210, #1c0e05); border: 2px solid #5a3a18;
+          border-radius: 14px; padding: 12px; cursor: pointer; text-align: center; transition: all .15s;
+        }
+        .boss-card:hover { border-color: #ffd970; transform: translateY(-3px); }
+        .boss-card.sel { border-color: #ff9000; box-shadow: 0 0 16px rgba(255,140,0,0.7); background: linear-gradient(180deg, #5a3218, #2c1405); }
+
+        .boss-avatar { font-size: 48px; margin-bottom: 4px; }
+        .boss-name { color: #ffd970; font-size: 16px; font-weight: bold; }
+        .boss-desc { color: #b09a6e; font-size: 12px; margin-top: 4px; line-height: 1.3; }
+
+        /* 难度切换按钮 */
+        .diff-selector { display: flex; gap: 10px; justify-content: center; margin: 12px 0; }
+        .diff-btn {
+          padding: 8px 20px; border-radius: 14px; border: 2px solid #5a3a18; cursor: pointer;
+          font-size: 14px; font-weight: bold; color: #d8c098; background: rgba(0,0,0,0.5); transition: all .15s;
+        }
+        .diff-btn.sel[data-diff="normal"] { background: #2e7d32; color: #fff; border-color: #81c784; }
+        .diff-btn.sel[data-diff="heroic"] { background: #c62828; color: #fff; border-color: #e57373; }
+        .diff-btn.sel[data-diff="nightmare"] { background: #6a1b9a; color: #fff; border-color: #ba68c8; box-shadow: 0 0 12px #aa20ff; }
+
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="board"></div>
+
+  <!-- 左侧出牌历史记录栏 -->
+  <div id="historyBar"></div>
+  <div id="midLine"></div>
+  <div id="midGem"></div>
+
+  <div id="enemyRow" class="row"></div>
+  <div id="myRow" class="row"></div>
+
+  <div id="enemyHero" class="hero">
+    <div class="hName">对手 · 烈焰法师</div>
+    <div class="hPortrait">🧙‍♀️</div>
+    <div class="hArmor">0</div>
+    <div class="hWeaponDur">0</div>
+    <div class="hWeaponAtk">0</div>
+    <div class="hHp">30</div>
+  </div>
+  <div id="myHero" class="hero">
+    <div class="hName">你 · 寒霜法师</div>
+    <div class="hPortrait">🧙‍♂️</div>
+    <div class="hArmor">0</div>
+    <div class="hWeaponDur">0</div>
+    <div class="hWeaponAtk">0</div>
+    <div class="hHp">30</div>
+  </div>
+
+  <div id="enemyPower" class="hpower"><div class="hpCost">2</div>🔥</div>
+  <div id="myPower" class="hpower"><div class="hpCost">2</div>🔥</div>
+
+  <div id="enemySecrets" class="secretRow"></div>
+  <div id="mySecrets" class="secretRow"></div>
+
+  <div id="enemyDeck" class="deckPile"><div class="dk"></div><div class="dk"></div><div class="dk"></div><div class="dkN">30</div><div class="dkLabel">敌方牌库</div></div>
+  <div id="myDeck" class="deckPile"><div class="dk"></div><div class="dk"></div><div class="dk"></div><div class="dkN">30</div><div class="dkLabel">我方牌库</div></div>
+
+  <div id="myManaBar"></div>
+  <div id="enemyManaTxt">0/0</div>
+
+  <button id="endTurn">结束回合</button>
+  <button id="quitBtn" title="返回主菜单">🏠</button>
+
+  <div id="enemyHand"></div>
+  <div id="myHand"></div>
+
+  <div id="banner"><div class="bnBg"></div><div class="bnTxt"></div></div>
+  <div id="hint"></div>
+
+  <svg id="arrowSvg" width="1600" height="900">
+    <defs>
+      <marker id="arrowHead" markerWidth="7" markerHeight="7" refX="3.2" refY="3.5" orient="auto">
+        <path d="M0,0 L7,3.5 L0,7 Z" fill="#ff3a20"/>
+      </marker>
+    </defs>
+    <path id="arrowPath" d="" stroke="#ff3a20" stroke-width="11" fill="none" stroke-linecap="round"
+      stroke-dasharray="18 12" marker-end="url(#arrowHead)" style="display:none"/>
+  </svg>
+
+  <div id="preview"></div>
+  <div id="insertMarker"></div>
+  <div id="fxLayer"></div>
+
+  <div id="gameOver"><div class="goBox">
+    <div id="goTitle">胜利！</div>
+    <button id="goBtn">再来一局</button>
+  </div></div>
+
+  <div id="intro">
+    <h1>⚔ 炉石网页版 ⚔</h1>
+    <div class="sub">— 复刻经典酒馆对战 · 简易单人模式 —</div>
+
+    <!-- 个人战绩数据看板 -->
+    <div class="profile-box" id="profileBox">
+      <div>🏆 总胜场：<span id="profWins">0</span></div>
+      <div>⚔️ 胜率：<span id="profWinRate">0%</span></div>
+      <div>🔥 连胜：<span id="profStreak">0</span></div>
+      <div>📦 套牌：<span id="profDeck">预设套牌</span></div>
+    </div>
+
+    <!-- 顶部金币余额 -->
+    <div style="position:absolute; top:20px; right:20px;" class="gold-badge">
+      <span class="gold-coin"></span> 金币：<span id="userGold">1000000</span>
+    </div>
+
+    <button id="introBtn">⚔ 单人 PVE 对战</button>
+    <button id="testModeBtn" style="border-color:#e05540 !important; color:#fff !important; background:linear-gradient(180deg, #f06545 0%, #b02515 55%, #801005 100%) !important;">🧪 开启沙盒测试模式</button>
+    <button id="netLobbyBtn">🌐 局域网双人对战</button>
+    <button id="resumeBtn" style="display:none">▶️ 继续上一局对战</button>
+    <button id="arenaBtn">🗡️ 竞技场 (100 <span class="gold-coin"></span>)</button>
+    <button id="shopBtn">🛍️ 炉石商店</button>
+    <button id="collectionBtn">📦 我的收藏</button>
+    <div class="tip">
+      随从/AOE法术：拖拽至战场打出 · 指向性法术/战吼：点击选中→点击目标<br>
+      点击己方随从 → 拖出红色箭头 → 点击敌方随从或英雄发起攻击<br>
+      新机制：风怒 吸血 剧毒 潜行 复生 法术伤害 冻结 沉默 突袭 · 右键/Esc 取消选择
+    </div>
+  </div>
+
+  <!-- ============ 我的收藏界面 ============ -->
+  <div id="collection">
+    <div class="col-topbar">
+      <button class="col-btn" id="colBackBtn">← 返回</button>
+      <span class="col-title">📦 我的收藏</span>
+      <div class="col-search-box">
+        <input type="text" id="colSearch" placeholder="搜索卡牌名称、描述、机制…" />
+      </div>
+    </div>
+    <div class="col-body">
+      <!-- 主区：包含顶部筛选栏 + 中央巨幅卡牌册 -->
+      <div class="col-main">
+        <!-- 顶部横向综合筛选控制台 -->
+        <div class="col-filter-bar">
+          <div class="filter-item">
+            <span class="filter-label">💎 费用：</span>
+            <div class="col-cost-grid" id="costFilters"></div>
+          </div>
+          <div class="filter-item">
+            <span class="filter-label">📋 类型：</span>
+            <div class="col-filter-btns" id="typeFilters"></div>
+          </div>
+          <div class="filter-item">
+            <span class="filter-label">🎯 稀有度：</span>
+            <div class="col-filter-btns" id="rarityFilters"></div>
+          </div>
+          <div class="filter-item">
+            <span class="filter-label">⚡ 机制：</span>
+            <div class="col-mech-grid" id="mechFilters"></div>
+          </div>
+        </div>
+
+        <!-- 中央巨幅卡牌展幅册 -->
+        <div class="col-center" id="colGridWrap">
+          <div class="book-spread">
+            <!-- 翻页控制按钮：挂在书本左右外边耳上，直连 turnPage 函数 -->
+            <button class="page-nav-btn page-prev" id="prevPageBtn" onclick="turnPage(-1)">◀</button>
+            <button class="page-nav-btn page-next" id="nextPageBtn" onclick="turnPage(1)">▶</button>
+
+            <div class="book-spine"></div>
+            <div class="book-page" id="pageLeft"></div>
+            <div class="book-page" id="pageRight"></div>
+            <div class="col-empty" id="colEmpty" style="display:none">🔍 未找到匹配的卡牌</div>
+
+            <!-- 嵌入书本底部的页码 -->
+            <div class="page-bar-embedded">
+              <span id="pageIndicator">第 1 / 1 页</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧套牌面板 -->
+      <div class="col-right">
+        <div class="deck-header">
+          <select id="deckSelect"><option value="">+ 新建套牌</option></select>
+          <button class="col-btn-sm" id="deckRename" title="重命名">✏️</button>
+          <button class="col-btn-sm" id="deckDelete" title="删除">🗑️</button>
+        </div>
+        <div class="deck-card-list" id="deckCardList">
+          <div style="color:#8a7a5a;text-align:center;padding:20px;">拖拽卡牌到此处<br>或点击卡牌添加</div>
+        </div>
+        <div class="deck-stats" id="deckStats">📊 卡牌：0/30</div>
+        <button class="col-btn" id="deckSave" style="width:100%">💾 保存套牌</button>
+      </div>
+    </div>
+    <div class="col-bottombar">
+      <span id="colDust">💎 奥术之尘：0</span>
+      <span id="colProgress">📊 收集进度：4/70</span>
+      <button class="col-btn-sm" id="colCraftBtn">⚒️ 制作模式</button>
+      <button class="col-btn-sm" id="colMassCraft">⚒️ 批量制作</button>
+      <button class="col-btn-sm" id="colMassDE">🔨 批量分解</button>
+    </div>
+  </div>
+
+  <!-- ============ 批量开包总结 Modal ============ -->
+  <div id="massSummaryModal">
+    <div class="mass-summary-box">
+      <h2 style="color:#ffd970; font-size:28px; margin-bottom:6px;">🎉 批量开包战利品结算</h2>
+      <div style="color:#d8c098; font-size:15px;" id="massOpenedTitle">共开启 10 包经典卡包</div>
+
+      <div class="mass-stats-grid">
+        <div class="mass-stat-card leg">🌟 传说：<span id="stLegCount">0</span> 张</div>
+        <div class="mass-stat-card epic">🔮 史诗：<span id="stEpicCount">0</span> 张</div>
+        <div class="mass-stat-card rare">🔷 稀有：<span id="stRareCount">0</span> 张</div>
+        <div class="mass-stat-card common">⚪ 普通：<span id="stCommonCount">0</span> 张</div>
+      </div>
+
+      <div class="mass-cards-preview" id="massCardsGrid">
+        <!-- 批量开出的卡牌微缩展示 -->
+      </div>
+
+      <button class="col-btn" id="closeMassSummaryBtn" style="margin-top:20px; padding:10px 40px; font-size:18px;">收下卡牌</button>
+    </div>
+  </div>
+
+  <!-- ============ 退出对战确认弹窗 ============ -->
+  <div id="quitModal" class="col-modal">
+    <div class="col-modal-box">
+      <div class="cm-title">🚪 放弃对战？</div>
+      <div class="cm-text">
+        确定要离开当前酒馆对战吗？<br>
+        <span style="color:#ff8060; font-size:13px; display:inline-block; margin-top:4px;">（未完成的对战进度将被清空）</span>
+      </div>
+      <div class="cm-btns">
+        <button class="col-btn-sm" id="quitCancel">继续对战</button>
+        <button class="col-btn" id="quitConfirm">确定退出</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 商店 Modal ============ -->
+  <div id="shopModal">
+    <div class="shop-box">
+      <div class="shop-header">
+        <span class="col-title">🛍️ 酒馆卡牌商店</span>
+        <div class="gold-badge" style="margin-left:auto;">
+          <span class="gold-coin"></span> 拥有金币：<span id="shopUserGold">1000000</span>
+        </div>
+        <button class="col-btn-sm" id="shopCloseBtn">✕ 关闭</button>
+      </div>
+      <div class="shop-body">
+        <!-- 商店左侧卡包展示 (带扩展包 Carousel 切换) -->
+        <div class="shop-left">
+          <div style="display:flex; align-items:center; gap:16px; margin-bottom:12px;">
+            <button class="page-nav-btn" onclick="switchPack(-1)" style="position:static; width:36px; height:60px; font-size:20px;">◀</button>
+            <div class="pack-art-big" id="expPackArt" style="margin-bottom:0;">📦</div>
+            <button class="page-nav-btn" onclick="switchPack(1)" style="position:static; width:36px; height:60px; font-size:20px;">▶</button>
+          </div>
+
+          <h2 style="color:#ffd970; margin-bottom:4px;" id="expPackName">经典卡包</h2>
+          <div style="color:#ffe27a; font-size:12px; margin-bottom:8px;" id="expProgressBadge">收集进度：0 / 20 张</div>
+          <p style="color:#d8c098; font-size:13px; margin-bottom:16px; max-width:320px;" id="expPackDesc">包含基础与经典攻防随从及标准法术。</p>
+
+          <div class="shop-buy-btns" id="shopBuyBtns">
+            <button class="col-btn" onclick="buyPacks(1)">1包 (<span id="price1">100</span>)</button>
+            <button class="col-btn" onclick="buyPacks(5)">5包 (<span id="price5">500</span>)</button>
+            <button class="col-btn" onclick="buyPacks(10)">10包 (<span id="price10">1000</span>)</button>
+            <button class="col-btn" onclick="buyPacks(50)">50包 (<span id="price50">5000</span>)</button>
+          </div>
+        </div>
+
+        <div class="shop-right">
+          <h3 style="color:#ffd970; margin-bottom:12px;">🎁 已购买卡包</h3>
+          <div style="font-size:64px; margin:10px 0;">📦</div>
+          <div style="color:#ffe27a; font-size:24px; font-weight:bold; margin-bottom:20px;">
+            数量：<span id="unopenedCount">0</span> 包
+          </div>
+          <button class="col-btn" id="startOpenPackBtn" style="padding:14px 36px; font-size:20px;">🎉 开始开包</button>
+          <button class="col-btn-sm" onclick="openMassPacks(10)" style="margin-top:8px; width:100%;">⚡ 一键开 10 包</button>
+          <button class="col-btn-sm" onclick="openMassPacks(50)" style="margin-top:4px; width:100%;">⚡ 一键开 50 包</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 开包舞台 Modal ============ -->
+  <div id="packStage">
+    <!-- 避免与金色传说重叠：移至左上角固定金边挂牌 -->
+    <div style="position:absolute; top:24px; left:24px;" class="gold-badge">
+      📦 剩余卡包：<span id="stageUnopenedCount">0</span> 包
+    </div>
+
+    <!-- 金色传说霸屏巨幅文字 -->
+    <div id="legBanner">金色传说！</div>
+
+    <div class="pack-cards-container" id="packCardsContainer">
+      <!-- 5张卡牌卡槽由 JS 动态生成 -->
+    </div>
+
+    <div style="margin-top:40px; display:flex; gap:20px; z-index:30;">
+      <button class="col-btn" id="nextPackBtn" style="display:none; padding:12px 40px; font-size:20px;">继续下一包</button>
+      <button class="col-btn-sm" id="exitPackStageBtn" style="padding:12px 30px;">返回商店</button>
+    </div>
+  </div>
+
+
+          <!-- ============ 对战准备大厅 Modal ============ -->
+          <div id="matchLobbyModal">
+            <div class="lobby-box">
+              <div class="lobby-header">
+                <span class="col-title">⚔️ 酒馆对战准备大厅</span>
+                <button class="col-btn-sm" id="closeLobbyBtn" style="margin-left:auto;">✕ 关闭</button>
+              </div>
+
+              <div class="lobby-body">
+                <!-- 左栏：选择套牌 -->
+                <div class="lobby-left">
+                  <h3 style="color:#ffd970;">📦 选择出战套牌</h3>
+                  <div class="lobby-deck-list" id="lobbyDeckList">
+                    <!-- 动态渲染套牌列表 -->
+                  </div>
+                </div>
+
+                <!-- 右栏：选择 Boss 与难度 -->
+                <div class="lobby-right">
+                  <h3 style="color:#ffd970;">🎯 选择挑战对手</h3>
+                  <div class="boss-grid" id="lobbyBossList">
+                    <!-- 动态渲染 Boss 列表 -->
+                  </div>
+
+                  <h3 style="color:#ffd970; margin-top:10px; text-align:center;">⚡ 选择对战难度</h3>
+                  <div class="diff-selector">
+                    <button class="diff-btn sel" data-diff="normal" onclick="selectDifficulty('normal')">🟢 普通难度</button>
+                    <button class="diff-btn" data-diff="heroic" onclick="selectDifficulty('heroic')">🟡 英雄难度</button>
+                    <button class="diff-btn" data-diff="nightmare" onclick="selectDifficulty('nightmare')">🔴 地狱难度</button>
+                  </div>
+
+                  <div style="margin-top:auto; text-align:center;">
+                    <button class="col-btn" id="startMatchBtn" style="padding:14px 60px; font-size:24px;">⚔️ 开始决斗！</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+
+	  <!-- ============ 竞技场 Modal (左右物理隔离架构) ============ -->
+	  <div id="arenaModal">
+	    <div class="arena-box">
+	      <div class="shop-header">
+	        <span class="col-title">🗡️ 极速竞技场 (最高 12 胜)</span>
+	        <button class="col-btn-sm" id="closeArenaBtn" style="margin-left:auto;">✕ 关闭</button>
+	      </div>
+
+	      <!-- 竞技场双栏隔离主体 -->
+	      <div class="arena-body">
+	        <!-- 左侧主操作区 (860px 宽，选牌/匹配绝对居中，永不下沉) -->
+	        <div class="arena-left-main">
+	          <!-- 1. 选牌模式 UI -->
+	          <div id="arenaDraftArea">
+	            <h2 id="arenaRoundTxt">第 1 / 30 轮（选择1张卡牌）</h2>
+	            <div id="arenaChoicesBox">
+	              <!-- 3张待选卡牌 -->
+	            </div>
+	          </div>
+
+	          <!-- 2. 挑战匹配模式 UI -->
+	          <div id="arenaRunArea">
+	            <div class="arena-key-box">
+	              <div class="key-icon" id="arenaKeyIcon">🗝️</div>
+	              <h2 style="color:#ffd970; font-size:22px; margin:2px 0;" id="arenaKeyName">木质钥匙</h2>
+	              <div class="arena-wins-txt">
+	                当前胜场：<span id="arenaWinsTxt">0</span> / 12
+	              </div>
+	              <div style="color:#ff5a5a; font-size:18px; margin-top:6px;" id="arenaLossesTxt">⚪ ⚪ ⚪</div>
+	            </div>
+
+	            <div class="arena-run-btns">
+	              <button class="col-btn" id="startArenaMatchBtn" style="padding:12px 42px; font-size:20px; cursor:pointer;">⚔️ 匹配对手</button>
+	              <button class="col-btn-sm" id="retireArenaBtn" style="padding:12px 20px; font-size:14px; cursor:pointer;">🚩 放弃本轮</button>
+	            </div>
+	          </div>
+	        </div>
+
+	        <!-- 右侧套牌侧边栏 (270px 宽，固定在最右边，绝对不干涉左侧) -->
+	        <div class="arena-right-deck">
+	          <div class="deck-stats" id="arenaDeckStats">📊 竞技场套牌：0/30</div>
+	          <div class="deck-card-list" id="arenaDeckList"></div>
+	        </div>
+	      </div>
+	    </div>
+	  </div>
+
+	  <!-- ============ 竞技场宝箱结算 Modal ============ -->
+	  <div id="arenaRewardsModal">
+	    <div class="reward-vault-box">
+	      <h1 style="color:#ffd970; font-size:40px; margin-bottom:8px;">🎁 竞技场战利品结算</h1>
+	      <div style="color:#ffe8b8; font-size:18px;">恭喜你在本轮竞技场中取得了 <span id="rewardWinsCount" style="color:#2ecc40; font-size:28px; font-weight:bold;">0</span> 场胜利！</div>
+
+	      <div class="reward-grid">
+	        <div class="reward-item"><span class="gold-coin"></span> 金币：+<span id="rwGold">0</span></div>
+	        <div class="reward-item">💎 粉尘：+<span id="rwDust">0</span></div>
+	        <div class="reward-item">📦 卡包：+<span id="rwPacks">0</span></div>
+	      </div>
+
+	      <button class="col-btn" id="closeRewardsBtn" style="padding:12px 48px; font-size:20px;">领取战利品</button>
+	    </div>
+	  </div>
+
+
+  <!-- ============ 对局战利品结算 Modal ============ -->
+  <div id="battleLootModal">
+    <div class="loot-vault-box">
+      <h1 style="color:#ffd970; font-size:36px; margin-bottom:6px;" id="btLootTitle">🏆 对局胜利！</h1>
+      <div style="color:#ffe8b8; font-size:16px; margin-bottom:20px;" id="btLootSub">恭喜你在本局对战中击败了敌人</div>
+
+      <div class="reward-grid">
+        <div class="reward-item"><span class="gold-coin"></span> 金币：+<span id="btGold">30</span></div>
+        <div class="reward-item">💎 粉尘：+<span id="btDust">50</span></div>
+      </div>
+
+      <button class="col-btn" id="claimBattleLootBtn" style="padding:12px 48px; font-size:20px; margin-top:10px;">收下战利品</button>
+    </div>
+  </div>
+
+</div>
+<!-- ============ 局域网联机 Modal ============ -->
+<div id="networkModal" class="col-modal">
+  <div class="shop-box" style="width: 720px; height: 500px;">
+    <div class="shop-header">
+      <span class="col-title">🌐 局域网双人对战大厅</span>
+      <button class="col-btn-sm" onclick="$('networkModal').style.display='none'" style="margin-left:auto;">✕ 关闭</button>
+    </div>
+
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px; gap:20px;">
+      <div style="display:flex; gap:20px;">
+        <button class="col-btn" onclick="openCreateRoomUI()">🏠 创建对战房间 (房主)</button>
+        <button class="col-btn" onclick="openJoinRoomUI()">⚔️ 加入对手房间 (挑战者)</button>
+      </div>
+
+      <!-- 创建房间等待区 -->
+      <div id="netWaitingBox" style="display:none; text-align:center; background:rgba(0,0,0,0.4); padding:20px; border-radius:16px; border:2px solid #5a3a18;">
+        <h3 style="color:#ffd970; margin-bottom:8px;">正在等待好友加入...</h3>
+        <p style="color:#ffe27a; font-size:18px;">你的局域网 IP：<span id="netServerIPTxt" style="color:#60b0ff;">127.0.0.1</span></p>
+        <p style="color:#ffd970; font-size:28px; font-weight:bold; margin-top:8px;">房间码：<span id="netRoomCodeTxt" style="color:#2ecc40;">8888</span></p>
+        <p style="color:#b09a6e; font-size:13px; margin-top:10px;">请将 IP 与 4 位房间码告知同 WiFi 下的好友！</p>
+      </div>
+
+      <!-- 加入房间表单 -->
+      <div id="netJoinForm" style="display:none; text-align:center; background:rgba(0,0,0,0.4); padding:20px; border-radius:16px; border:2px solid #5a3a18;">
+        <div style="margin-bottom:12px;">
+          <label style="color:#ffe8b8; font-size:16px;">房主 IP 地址：</label>
+          <input type="text" id="netHostIPInput" value="127.0.0.1" style="width:180px; padding:6px 12px; border-radius:8px; border:2px solid #6a4a20; background:#000; color:#ffd970; font-weight:bold;" />
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="color:#ffe8b8; font-size:16px;">4 位房间码：</label>
+          <input type="text" id="netRoomCodeInput" placeholder="输入房间码" style="width:180px; padding:6px 12px; border-radius:8px; border:2px solid #6a4a20; background:#000; color:#ffd970; font-weight:bold;" />
+        </div>
+        <button class="col-btn" onclick="submitJoinRoom()">连入对战！</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 发现 (Discover) 3选1 Modal ============ -->
+<div id="discoverModal">
+  <div class="discover-box">
+    <div class="discover-title" id="discoverTitle">🔍 发现一张卡牌 (点击选择1张加入手牌)</div>
+    <div class="discover-cards-container" id="discoverContainer">
+      <!-- 3张待发现卡牌由 JS 动态生成 -->
+    </div>
+  </div>
+</div>
+
+<!-- 模块加载顺序 (单人/单机完整版) -->
+<script src="cards.js"></script>     <!-- 1. 最先加载卡牌库 -->
+<script src="history.js"></script>   <!-- 2. 历史日志 -->
+<script src="effects.js"></script>   <!-- 3. 效果系统 -->
+<script src="fx.js"></script>        <!-- 4. 视觉特效引擎 -->
+<script src="testMode.js"></script>  <!-- 4½. 沙盒测试模式模块 -->
+<script src="network.js"></script>   <!-- 5. 局域网联机驱动 -->
+<script src="game.js"></script>      <!-- 6. 对战主引擎 -->
+<script src="collection.js"></script><!-- 7. 收藏册 -->
+<script src="shop.js"></script>      <!-- 8. 商店 -->
+<script src="arena.js"></script>     <!-- 9. 竞技场 -->
+
+  <!-- ============ 全局通用酒馆金边弹窗 (提取至最顶层) ============ -->
+  <div class="col-modal" id="colModal">
+    <div class="col-modal-box">
+      <div class="cm-title" id="cmTitle"></div>
+      <div class="cm-text" id="cmText"></div>
+      <div class="cm-btns">
+        <button class="col-btn-sm" id="cmCancel">取消</button>
+        <button class="col-btn" id="cmConfirm">确认</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
