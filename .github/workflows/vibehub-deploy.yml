@@ -39,20 +39,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          pull_request="$(
+          pr_json="$(
             gh api \
               -H "Accept: application/vnd.github+json" \
               "/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
-              --jq '.[0] | select(.) | "PR #\(.number) · \(.head.ref) · \(.title)"' \
+              --jq '.[0] | select(.)' \
               2>/dev/null || true
           )"
-          if [ -n "$pull_request" ]; then
-            release_note="$pull_request"
+          if [ -n "$pr_json" ]; then
+            number="$(printf '%s' "$pr_json" | jq -r '.number')"
+            head_ref="$(printf '%s' "$pr_json" | jq -r '.head.ref')"
+            title="$(printf '%s' "$pr_json" | jq -r '.title')"
+            body="$(printf '%s' "$pr_json" | jq -r '.body // empty')"
+            {
+              printf 'PR #%s · %s · %s\n' "$number" "$head_ref" "$title"
+              if [ -n "$body" ]; then
+                printf '\n%s\n' "$body" | head -c 2000
+              fi
+            } > "$RUNNER_TEMP/vibehub-release-note.txt"
           else
             commit_title="$(git log -1 --pretty=%s)"
-            release_note="直接推送 · ${commit_title:0:1000}"
+            printf '直接推送 · %s\n' "${commit_title:0:1000}" > "$RUNNER_TEMP/vibehub-release-note.txt"
           fi
-          printf '%s\n' "$release_note" > "$RUNNER_TEMP/vibehub-release-note.txt"
 
       - name: Publish built files
         if: github.event_name == 'push'
