@@ -18,14 +18,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Agent: replace this block after detecting the repository's package manager and build script.
       - name: Build static site
         run: |
           true
 
+      # 判断本次改动是否涉及游戏内容:只改 docs/、CLAUDE.md、README.md、.github/ 等
+      # 非游戏文件时(game=false),跳过 VibeHub 部署与版本说明,避免内部文档污染游戏简介。
+      - name: Detect game content changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            game:
+              - '**'
+              - '!docs/**'
+              - '!CLAUDE.md'
+              - '!README.md'
+              - '!**/*.md'
+              - '!.github/**'
+              - '!.gitignore'
+              - '!.vibehub/**'
+              - '!参考文档/**'
+              - '!**/*.txt'
+
+      - name: Skip notice for non-game changes
+        if: github.event_name == 'push' && steps.changes.outputs.game == 'false'
+        run: echo "本次改动仅涉及文档/CI 等非游戏文件,跳过 VibeHub 部署"
+
       - name: Install verified VibeHub CLI
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.changes.outputs.game == 'true'
         run: |
           installer="$(mktemp)"
           curl -fsSL --retry 3 https://vibe.lumigrav.space/downloads/vibehub-cli/install.sh -o "$installer"
@@ -33,7 +58,7 @@ jobs:
           rm -f "$installer"
 
       - name: Create concise release note
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.changes.outputs.game == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -63,7 +88,7 @@ jobs:
           fi
 
       - name: Publish built files
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.changes.outputs.game == 'true'
         env:
           VIBEHUB_TOKEN: ${{ secrets.VIBEHUB_PROJECT_TOKEN }}
         run: |
