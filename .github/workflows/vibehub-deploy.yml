@@ -26,24 +26,39 @@ jobs:
         run: |
           true
 
-      # 判断本次改动是否涉及游戏内容:只改 docs/、CLAUDE.md、README.md、.github/ 等
-      # 非游戏文件时(game=false),跳过 VibeHub 部署与版本说明,避免内部文档污染游戏简介。
+      # 判断本次改动是否涉及游戏内容。
+      # 约定:游戏内容 = 仓库根目录的静态文件(index.html、*.js 等);
+      # 子目录(docs/.github/.vibehub/参考文档/酒馆战棋模式等)与根目录已知非游戏文件
+      # (CLAUDE.md/README.md/.gitignore)视为非游戏,不触发部署,避免内部文档污染游戏简介。
       - name: Detect game content changes
         id: changes
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            game:
-              - '**'
-              - '!docs/**'
-              - '!CLAUDE.md'
-              - '!README.md'
-              - '!**/*.md'
-              - '!.github/**'
-              - '!.gitignore'
-              - '!.vibehub/**'
-              - '!参考文档/**'
-              - '!**/*.txt'
+        shell: bash
+        env:
+          EVENT_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base="${EVENT_BEFORE:-HEAD~1}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            base="$(git rev-list --max-parents=0 HEAD)"
+          fi
+          changed="$(git diff --name-only "$base" HEAD 2>/dev/null || true)"
+          echo "本次改动文件:"
+          echo "$changed" | sed 's/^/  /'
+          non_game="CLAUDE.md README.md .gitignore"
+          game="false"
+          for f in $changed; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              *"/"*) continue ;;        # 子目录文件 → 非游戏
+            esac
+            case " $non_game " in
+              *" $f "*) continue ;;     # 根目录已知非游戏文件
+            esac
+            game="true"
+            break
+          done
+          echo "game=$game"
+          echo "game=$game" >> "$GITHUB_OUTPUT"
 
       - name: Skip notice for non-game changes
         if: github.event_name == 'push' && steps.changes.outputs.game == 'false'
